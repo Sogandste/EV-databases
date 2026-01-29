@@ -1,24 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>EVisionary | EV Metadata Explorer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<h1>{{ app_name }}</h1>
+<p>{{ subtitle }}</p>
+
 <form method="get" action="/search">
 
-<select name="column1"> … </select>
-<input name="q1" value="{{ q1 or '' }}">
-
-<select name="operator">
-  <option value="AND">AND</option>
-  <option value="OR">OR</option>
+<select name="column1">
+    <option value="">Column 1</option>
+    {% for col in columns %}
+        <option value="{{ col }}" {% if col == column1 %}selected{% endif %}>{{ col }}</option>
+    {% endfor %}
 </select>
 
-<select name="column2"> … </select>
-<input name="q2" value="{{ q2 or '' }}">
+<input name="q1" value="{{ q1 or '' }}" placeholder="Search term 1">
 
-<input name="ontology" value="{{ ontology or '' }}"
-       placeholder="Ontology term (e.g. exosome)">
+<select name="operator">
+    <option value="AND" {% if operator == "AND" %}selected{% endif %}>AND</option>
+    <option value="OR" {% if operator == "OR" %}selected{% endif %}>OR</option>
+</select>
+
+<select name="column2">
+    <option value="">Column 2</option>
+    {% for col in columns %}
+        <option value="{{ col }}" {% if col == column2 %}selected{% endif %}>{{ col }}</option>
+    {% endfor %}
+</select>
+
+<input name="q2" value="{{ q2 or '' }}" placeholder="Search term 2">
+
+<input name="ontology" value="{{ ontology or '' }}" placeholder="Ontology term (e.g. exosome)">
 
 <button type="submit">Search</button>
 
 {% if results %}
 <a class="export"
- href="/export?ontology={{ ontology }}">Export CSV</a>
+   href="/export?ontology={{ ontology }}">Export CSV</a>
 {% endif %}
 
 </form>
+
+{% if results %}
+<table>
+<thead>
+<tr>
+{% for k in results[0].keys() %}
+<th>{{ k }}</th>
+{% endfor %}
+</tr>
+</thead>
+<tbody>
+{% for row in results %}
+<tr>
+{% for v in row.values() %}
+<td>{{ v }}</td>
+{% endfor %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<div class="pagination">
+{% if page > 1 %}
+<a href="?page={{ page-1 }}">Previous</a>
+{% endif %}
+<span>Page {{ page }} of {{ total_pages }}</span>
+{% if page < total_pages %}
+<a href="?page={{ page+1 }}">Next</a>
+{% endif %}
+</div>
+{% endif %}
+
+</body>
+</html>

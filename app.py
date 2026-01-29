@@ -5,22 +5,48 @@ from ontology_terms import normalize_term
 
 app = Flask(__name__)
 
-# ---------- Data path ----------
+# -------- Paths --------
 LOCAL_PATH = "/Users/sogand/Downloads/EV_Databases/Unified_Output/unified_ev_metadata.parquet"
 DOCKER_PATH = "/app/data/unified_ev_metadata.parquet"
 DATA_PATH = DOCKER_PATH if os.path.exists(DOCKER_PATH) else LOCAL_PATH
 
-df = pd.read_parquet(DATA_PATH)
+# -------- Lazy data holder --------
+_df = None
+
+# فقط ستون‌هایی که UI لازم دارد
+UI_COLUMNS = [
+    "sample_type",
+    "isolation_method",
+    "species",
+    "tissue",
+    "vesicle_type",
+    "database"
+]
+
 PAGE_SIZE = 25
 
-# ---------- Home ----------
+def get_df():
+    global _df
+    if _df is None:
+        _df = pd.read_parquet(DATA_PATH, columns=UI_COLUMNS)
+    return _df
+
+# -------- Home --------
 @app.route("/")
 def home():
-    return render_template("index.html", columns=list(df.columns))
+    df = get_df()
+    return render_template(
+        "index.html",
+        app_name="EVisionary",
+        subtitle="Ontology‑aware harmonization and exploration of EV metadata",
+        columns=list(df.columns)
+    )
 
-# ---------- Search ----------
+# -------- Search --------
 @app.route("/search")
 def search():
+    df = get_df()
+
     col1 = request.args.get("column1", "")
     q1 = request.args.get("q1", "").strip()
 
@@ -33,27 +59,30 @@ def search():
 
     filtered = df
 
-    # ---- Text filters ----
-    mask1 = df[col1].astype(str).str.contains(q1, case=False, na=False) if col1 in df.columns and q1 else None
-    mask2 = df[col2].astype(str).str.contains(q2, case=False, na=False) if col2 in df.columns and q2 else None
+    # ---- Vectorized filters ----
+    if col1 in df.columns and q1:
+        m1 = df[col1].astype(str).str.contains(q1, case=False, na=False)
+    else:
+        m1 = None
 
-    if mask1 is not None and mask2 is not None:
-        filtered = df[mask1 & mask2] if operator == "AND" else df[mask1 | mask2]
-    elif mask1 is not None:
-        filtered = df[mask1]
-    elif mask2 is not None:
-        filtered = df[mask2]
+    if col2 in df.columns and q2:
+        m2 = df[col2].astype(str).str.contains(q2, case=False, na=False)
+    else:
+        m2 = None
 
-    # ---- Ontology-aware filter ----
+    if m1 is not None and m2 is not None:
+        filtered = df[m1 & m2] if operator == "AND" else df[m1 | m2]
+    elif m1 is not None:
+        filtered = df[m1]
+    elif m2 is not None:
+        filtered = df[m2]
+
+    # ---- Ontology-aware filter (SAFE) ----
     ont = normalize_term(ontology_term)
     if ont:
-        term_label = ont["label"]
-        filtered = filtered[
-            filtered.apply(
-                lambda row: term_label in " ".join(row.astype(str)).lower(),
-                axis=1
-            )
-        ]
+        label = ont["label"]
+        text_blob = filtered.astype(str).agg(" ".join, axis=1)
+        filtered = filtered[text_blob.str.contains(label, case=False, na=False)]
 
     # ---- Pagination ----
     total_pages = (len(filtered) - 1) // PAGE_SIZE + 1 if len(filtered) else 0
@@ -64,6 +93,8 @@ def search():
 
     return render_template(
         "index.html",
+        app_name="EVisionary",
+        subtitle="Ontology‑aware harmonization and exploration of EV metadata",
         columns=list(df.columns),
         results=results,
         column1=col1,
@@ -76,33 +107,33 @@ def search():
         total_pages=total_pages
     )
 
-# ---------- Export ----------
+# -------- Export --------
 @app.route("/export")
 def export_csv():
+    df = get_df()
     ontology_term = request.args.get("ontology", "")
     ont = normalize_term(ontology_term)
 
     filtered = df
     if ont:
-        filtered = filtered[
-            filtered.apply(
-                lambda row: ont["label"] in " ".join(row.astype(str)).lower(),
-                axis=1
-            )
-        ]
+        label = ont["label"]
+        blob = df.astype(str).agg(" ".join, axis=1)
+        filtered = df[blob.str.contains(label, case=False, na=False)]
 
     return Response(
         filtered.to_csv(index=False),
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=ev_ontology_filtered.csv"}
+        headers={"Content-Disposition": "attachment; filename=evisionary_results.csv"}
     )
 
-# ---------- Case study ----------
+# -------- Case study --------
 @app.route("/case-study/jev")
 def case_study():
+    df = get_df()
     return jsonify({
-        "ontology_terms_supported": ["exosome", "extracellular vesicle", "microvesicle"],
-        "total_records": int(len(df))
+        "app": "EVisionary",
+        "total_records": int(len(df)),
+        "columns": list(df.columns)
     })
 
 @app.route("/favicon.ico")
