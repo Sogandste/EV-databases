@@ -1,144 +1,172 @@
 import os
 import pandas as pd
-from flask import Flask, render_template, request, jsonify, Response
-from ontology_terms import normalize_term
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# -------- Paths --------
-LOCAL_PATH = "/Users/sogand/Downloads/EV_Databases/Unified_Output/unified_ev_metadata.parquet"
-DOCKER_PATH = "/app/data/unified_ev_metadata.parquet"
-DATA_PATH = DOCKER_PATH if os.path.exists(DOCKER_PATH) else LOCAL_PATH
+# --------------------------------------------------
+# App config
+# --------------------------------------------------
+APP_NAME = os.environ.get("APP_NAME", "EVisionary")
 
-# -------- Lazy data holder --------
-_df = None
+# --------------------------------------------------
+# Data path (Render / Docker / Local safe)
+# --------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
-# فقط ستون‌هایی که UI لازم دارد
+if not os.path.exists(DATA_PATH):
+    raise RuntimeError(f"Parquet file not found at {DATA_PATH}")
+
+# --------------------------------------------------
+# Ontology-aware mappings (EV / GO – minimal but real)
+# --------------------------------------------------
+EV_ONTOLOGY = {
+    "exosome": ["exosome", "small extracellular vesicle", "sev"],
+    "microvesicle": ["microvesicle", "ectosome"],
+    "extracellular vesicle": ["extracellular vesicle", "ev"]
+}
+
+GO_TERMS = {
+    "extracellular region": ["GO:0005576"],
+    "extracellular exosome": ["GO:0070062"],
+    "extracellular vesicle": ["GO:1903561"]
+}
+
+# --------------------------------------------------
+# Preferred UI columns (schema-safe)
+# --------------------------------------------------
 UI_COLUMNS = [
-    "sample_type",
+    "SAMPLE",
+    "SAMPLE_SOURCE",
     "isolation_method",
     "species",
-    "tissue",
-    "vesicle_type",
-    "database"
+    "VESICLE_TYPE",
+    "DATABASE"
 ]
 
-PAGE_SIZE = 25
+_df = None
+
 
 def get_df():
+    """Lazy-load dataframe and select only existing columns."""
     global _df
+
     if _df is None:
-        _df = pd.read_parquet(DATA_PATH, columns=UI_COLUMNS)
+        full_df = pd.read_parquet(DATA_PATH)
+        safe_cols = [c for c in UI_COLUMNS if c in full_df.columns]
+        _df = full_df[safe_cols]
+
     return _df
 
-# -------- Home --------
-@app.route("/")
+
+def ontology_filter(df, term):
+    """
+    Ontology-aware filtering for EV terms.
+    Matches synonyms across VESICLE_TYPE column.
+    """
+    if "VESICLE_TYPE" not in df.columns:
+        return df
+
+    term = term.lower()
+
+    synonyms = []
+    if term in EV_ONTOLOGY:
+        synonyms = EV_ONTOLOGY[term]
+    else:
+        synonyms = [term]
+
+    mask = df["VESICLE_TYPE"].astype(str).str.lower().apply(
+        lambda x: any(s in x for s in synonyms)
+    )
+    return df[mask]
+
+
+# --------------------------------------------------
+# Routes
+# --------------------------------------------------
+@app.route("/", methods=["GET"])
 def home():
     df = get_df()
-    return render_template(
-        "index.html",
-        app_name="EVisionary",
-        subtitle="Ontology‑aware harmonization and exploration of EV metadata",
-        columns=list(df.columns)
-    )
 
-# -------- Search --------
-@app.route("/search")
-def search():
-    df = get_df()
+    query = request.args.get("q", "").strip().lower()
+    ev_term = request.args.get("ev_term", "").strip().lower()
 
-    col1 = request.args.get("column1", "")
-    q1 = request.args.get("q1", "").strip()
+    if ev_term:
+        df = ontology_filter(df, ev_term)
 
-    col2 = request.args.get("column2", "")
-    q2 = request.args.get("q2", "").strip()
+    if query:
+        mask = df.apply(
+            lambda row: row.astype(str).str.lower().str.contains(query).any(),
+            axis=1
+        )
+        df = df[mask]
 
-    operator = request.args.get("operator", "AND")
-    ontology_term = request.args.get("ontology", "").strip()
-    page = int(request.args.get("page", 1))
-
-    filtered = df
-
-    # ---- Vectorized filters ----
-    if col1 in df.columns and q1:
-        m1 = df[col1].astype(str).str.contains(q1, case=False, na=False)
-    else:
-        m1 = None
-
-    if col2 in df.columns and q2:
-        m2 = df[col2].astype(str).str.contains(q2, case=False, na=False)
-    else:
-        m2 = None
-
-    if m1 is not None and m2 is not None:
-        filtered = df[m1 & m2] if operator == "AND" else df[m1 | m2]
-    elif m1 is not None:
-        filtered = df[m1]
-    elif m2 is not None:
-        filtered = df[m2]
-
-    # ---- Ontology-aware filter (SAFE) ----
-    ont = normalize_term(ontology_term)
-    if ont:
-        label = ont["label"]
-        text_blob = filtered.astype(str).agg(" ".join, axis=1)
-        filtered = filtered[text_blob.str.contains(label, case=False, na=False)]
-
-    # ---- Pagination ----
-    total_pages = (len(filtered) - 1) // PAGE_SIZE + 1 if len(filtered) else 0
-    start = (page - 1) * PAGE_SIZE
-    end = start + PAGE_SIZE
-
-    results = filtered.iloc[start:end].to_dict(orient="records")
+    preview = df.head(200).to_dict(orient="records")
 
     return render_template(
         "index.html",
-        app_name="EVisionary",
-        subtitle="Ontology‑aware harmonization and exploration of EV metadata",
-        columns=list(df.columns),
-        results=results,
-        column1=col1,
-        column2=col2,
-        q1=q1,
-        q2=q2,
-        operator=operator,
-        ontology=ontology_term,
-        page=page,
-        total_pages=total_pages
+        app_name=APP_NAME,
+        rows=preview,
+        total=len(df),
+        query=query,
+        ev_term=ev_term
     )
 
-# -------- Export --------
-@app.route("/export")
-def export_csv():
+
+# --------------------------------------------------
+# ✅ Case Study Endpoint for JEV
+# --------------------------------------------------
+@app.route("/case-study/jev", methods=["GET"])
+def case_study_jev():
+    """
+    Ontology-aware harmonization summary for JEV case study.
+    Output is reviewer-ready and reproducible.
+    """
     df = get_df()
-    ontology_term = request.args.get("ontology", "")
-    ont = normalize_term(ontology_term)
 
-    filtered = df
-    if ont:
-        label = ont["label"]
-        blob = df.astype(str).agg(" ".join, axis=1)
-        filtered = df[blob.str.contains(label, case=False, na=False)]
+    summary = {}
 
-    return Response(
-        filtered.to_csv(index=False),
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=evisionary_results.csv"}
-    )
+    if "VESICLE_TYPE" in df.columns:
+        summary["vesicle_type_distribution"] = (
+            df["VESICLE_TYPE"]
+            .value_counts(dropna=True)
+            .head(10)
+            .to_dict()
+        )
 
-# -------- Case study --------
-@app.route("/case-study/jev")
-def case_study():
-    df = get_df()
-    return jsonify({
-        "app": "EVisionary",
-        "total_records": int(len(df)),
-        "columns": list(df.columns)
-    })
+    if "isolation_method" in df.columns:
+        summary["isolation_methods"] = (
+            df["isolation_method"]
+            .value_counts(dropna=True)
+            .head(10)
+            .to_dict()
+        )
 
-@app.route("/favicon.ico")
-def favicon():
-    return "", 204
+    if "species" in df.columns:
+        summary["species_distribution"] = (
+            df["species"]
+            .value_counts(dropna=True)
+            .to_dict()
+        )
 
+    summary["ontology"] = {
+        "ev_terms": EV_ONTOLOGY,
+        "go_terms": GO_TERMS
+    }
+
+    summary["metadata"] = {
+        "total_records": len(df),
+        "columns_used": list(df.columns),
+        "application": APP_NAME
+    }
+
+    return jsonify(summary)
+
+
+# --------------------------------------------------
+# Run (Render-compatible)
+# --------------------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
