@@ -1,6 +1,7 @@
 import os
+import pyarrow.parquet as pq
 import pandas as pd
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
@@ -8,7 +9,6 @@ app = Flask(__name__)
 # Config
 # --------------------------------------------------
 APP_NAME = os.environ.get("APP_NAME", "EVisionary")
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
@@ -16,7 +16,7 @@ if not os.path.exists(DATA_PATH):
     raise RuntimeError(f"Parquet file not found: {DATA_PATH}")
 
 # --------------------------------------------------
-# Ontology-aware mappings (minimal, real)
+# Ontology mappings (minimal, real)
 # --------------------------------------------------
 EV_ONTOLOGY = {
     "exosome": ["exosome", "small extracellular vesicle", "sev"],
@@ -31,33 +31,38 @@ GO_TERMS = {
 }
 
 # --------------------------------------------------
-# Lazy-loaded dataframe
+# Columns we actually need (verified from schema)
 # --------------------------------------------------
-_df = None
-
-
-def get_df():
-    """
-    Absolutely schema-safe loader.
-    No column projection at read time (prevents ArrowInvalid).
-    """
-    global _df
-
-    if _df is None:
-        _df = pd.read_parquet(DATA_PATH)
-
-    return _df
-
+SAFE_COLUMNS = [
+    "VESICLE_TYPE",
+    "isolation_method",
+    "species",
+    "DATABASE"
+]
 
 # --------------------------------------------------
-# Ontology-aware EV filter
+# Parquet reader (memory-safe)
+# --------------------------------------------------
+_parquet = pq.ParquetFile(DATA_PATH)
+
+
+def read_safe_df(columns):
+    """
+    Read only selected columns using low-level pyarrow API
+    to avoid loading the full dataset into memory.
+    """
+    table = _parquet.read(columns=columns)
+    return table.to_pandas()
+
+
+# --------------------------------------------------
+# Ontology filter
 # --------------------------------------------------
 def filter_by_ev_ontology(df, term):
     if "VESICLE_TYPE" not in df.columns:
         return df
 
     term = term.lower()
-
     synonyms = EV_ONTOLOGY.get(term, [term])
 
     mask = df["VESICLE_TYPE"].astype(str).str.lower().apply(
@@ -72,25 +77,15 @@ def filter_by_ev_ontology(df, term):
 # --------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
-    df = get_df()
-
-    query = request.args.get("q", "").strip().lower()
     ev_term = request.args.get("ev", "").strip().lower()
+
+    df = read_safe_df(SAFE_COLUMNS)
 
     if ev_term:
         df = filter_by_ev_ontology(df, ev_term)
 
-    if query:
-        mask = df.apply(
-            lambda row: row.astype(str).str.lower().str.contains(query).any(),
-            axis=1
-        )
-        df = df[mask]
-
-    # ultra-safe response (template-independent)
     return jsonify({
         "status": "ok",
-        "application": APP_NAME,
         "records": len(df),
         "columns": list(df.columns),
         "ev_filter": ev_term or None
@@ -98,11 +93,11 @@ def home():
 
 
 # --------------------------------------------------
-# ✅ Case Study Endpoint – JEV
+# ✅ Case Study Endpoint – JEV (OOM-safe)
 # --------------------------------------------------
 @app.route("/case-study/jev", methods=["GET"])
 def case_study_jev():
-    df = get_df()
+    df = read_safe_df(SAFE_COLUMNS)
 
     summary = {
         "total_records": len(df),
@@ -124,7 +119,7 @@ def case_study_jev():
         },
         "reproducibility": {
             "data_file": "unified_ev_metadata.parquet",
-            "deployment": "Render",
+            "deployment": "Render free tier",
             "application": APP_NAME
         }
     }
