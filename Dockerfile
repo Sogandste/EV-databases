@@ -9,11 +9,11 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ..
+COPY . .
 
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
 
 EXPOSE 5000
 
-CMD ["python", "api/app.py"]
+CMD ["python", "app.py"]
