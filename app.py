@@ -1,58 +1,121 @@
-from flask import Flask, render_template, request
-import pandas as pd
+import os
+import duckdb
+from flask import Flask, request, jsonify, render_template
 
-app = Flask(__name__)
+from synonyms import SYNONYM_MAP
+from ontology_terms import ONTOLOGY_MAP
 
-# --- Mock Data ---
-data_ves = [
-    {"Gene": "CD63", "Symbol": "CD63", "Organism": "Homo sapiens", "Cargo": "Protein", "Method": "Western Blot", "PMID": "19369651"},
-    {"Gene": "CD63", "Symbol": "CD63", "Organism": "Mus musculus", "Cargo": "Protein", "Method": "Mass Spec", "PMID": "21223211"},
-    {"Gene": "HSP90", "Symbol": "HSP90AA1", "Organism": "Homo sapiens", "Cargo": "Protein", "Method": "ELISA", "PMID": "19369651"},
-]
+app = Flask(__name__, template_folder="templates")
 
-data_exo = [
-    {"Gene": "TSPAN30", "Symbol": "CD63", "Organism": "Homo sapiens", "Cargo": "Protein", "Method": "Flow Cytometry", "PMID": "25678901"},
-    {"Gene": "ALIX", "Symbol": "PDCD6IP", "Organism": "Homo sapiens", "Cargo": "Protein", "Method": "Western Blot", "PMID": "22334455"},
-]
+# ----------------------------------
+# Path handling (local vs Render)
+# ----------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-df_ves = pd.DataFrame(data_ves)
-df_ves['Source'] = 'Vesiclepedia'
+PARQUET_PATH = os.environ.get(
+    "EV_PARQUET_PATH",
+    os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
+)
 
-df_exo = pd.DataFrame(data_exo)
-df_exo['Source'] = 'ExoCarta'
+# ----------------------------------
+# Load data once
+# ----------------------------------
+con = duckdb.connect(database=":memory:")
+con.execute(f"""
+    CREATE TABLE ev_metadata AS
+    SELECT * FROM read_parquet('{PARQUET_PATH}')
+""")
 
-df_all = pd.concat([df_ves, df_exo], ignore_index=True)
+# ----------------------------------
+# Normalization (synonym + ontology)
+# ----------------------------------
+def normalize_term(term: str) -> str:
+    t = term.lower().strip()
 
-# --- Harmonization ---
-SYNONYM_MAP = {
-    "TSPAN30": "CD63",
-    "CD63": "CD63",
-    "LAMP3": "CD63",
-    "ALIX": "PDCD6IP",
-    "PDCD6IP": "PDCD6IP"
-}
+    if t in SYNONYM_MAP:
+        return SYNONYM_MAP[t]
 
-def resolve_synonyms(query):
-    q = query.upper().strip()
-    return SYNONYM_MAP.get(q, q)
+    if t in ONTOLOGY_MAP:
+        return ONTOLOGY_MAP[t]["label"]
 
-@app.route('/', methods=['GET', 'POST'])
+    return t
+
+
+# ----------------------------------
+# UI
+# ----------------------------------
+@app.route("/")
 def index():
-    results = []
-    query = ""
-    std = ""
-    
-    if request.method == 'POST':
-        query = request.form.get('search_query', '')
-        if query:
-            std = resolve_synonyms(query)
-            # Filter
-            mask = (df_all['Symbol'].str.upper() == std) | (df_all['Gene'].str.upper() == std)
-            filtered = df_all[mask]
-            if not filtered.empty:
-                results = filtered.to_dict('records')
-                
-    return render_template('index.html', results=results, query=query, std=std)
+    return render_template("index.html")
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
+# ----------------------------------
+# Health check (Render)
+# ----------------------------------
+@app.route("/api/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
+# ----------------------------------
+# Search API
+# ----------------------------------
+@app.route("/api/search")
+def search():
+    raw_term = request.args.get("term")
+    if not raw_term:
+        return jsonify({"error": "term parameter is required"}), 400
+
+    term = normalize_term(raw_term)
+
+    query = f"""
+        SELECT
+            study_accession,
+            sample_id,
+            tissue,
+            isolation_method,
+            disease
+        FROM ev_metadata
+        WHERE
+            LOWER(tissue) LIKE '%{term}%'
+            OR LOWER(isolation_method) LIKE '%{term}%'
+            OR LOWER(disease) LIKE '%{term}%'
+        LIMIT 100
+    """
+
+    df = con.execute(query).df()
+    return jsonify(df.to_dict(orient="records"))
+
+
+# ----------------------------------
+# Case‑study endpoint
+# ----------------------------------
+@app.route("/api/case-study/msc-ev")
+def case_study():
+    query = """
+        SELECT
+            study_accession,
+            sample_id,
+            tissue,
+            isolation_method,
+            disease
+        FROM ev_metadata
+        WHERE
+            LOWER(tissue) LIKE '%mesenchymal%'
+            AND LOWER(isolation_method) LIKE '%ultracentrifugation%'
+    """
+
+    df = con.execute(query).df()
+    return jsonify({
+        "case_study": "MSC-derived EVs",
+        "n_samples": len(df),
+        "results": df.to_dict(orient="records")
+    })
+
+
+# ----------------------------------
+# Entrypoint (Render-safe)
+# ----------------------------------
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

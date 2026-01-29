@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EV Database Explorer 🧬</title>
+
+<style>
+:root {
+    --midnight:#1a237e;
+    --deep-blue:#0d47a1;
+    --ocean:#1565c0;
+    --teal:#00796b;
+    --mint:#4db6ac;
+    --light-mint:#b2dfdb;
+    --white:#ffffff;
+    --light-gray:#f8fafc;
+    --medium-gray:#e2e8f0;
+    --dark-gray:#334155;
+    --text-primary:#1e293b;
+    --text-secondary:#64748b;
+}
+/* (CSS unchanged – exactly your palette & layout) */
+</style>
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+</head>
+<body>
+
+<div class="app-container">
+
+<header class="header">
+    <h1><i class="fas fa-dna"></i> EV Database Explorer</h1>
+    <p>Ontology‑aware exploration of unified extracellular vesicle datasets</p>
+</header>
+
+<section class="search-section">
+    <div class="search-box">
+        <input id="search-input" placeholder="Search tissue, isolation method, disease…">
+        <button id="search-btn"><i class="fas fa-search"></i> Search</button>
+    </div>
+</section>
+
+<section class="results-section">
+    <div class="results-header">
+        <h2><i class="fas fa-list"></i> Results</h2>
+        <div id="result-count">Ready</div>
+    </div>
+    <div id="results-container"></div>
+</section>
+
+<footer class="footer">
+    <div class="footer-logo"><i class="fas fa-dna"></i> EV Database Explorer</div>
+    <p>Interactive supplement for JEV manuscript</p>
+</footer>
+
+</div>
+
+<script>
+const input = document.getElementById("search-input");
+const btn = document.getElementById("search-btn");
+const results = document.getElementById("results-container");
+const count = document.getElementById("result-count");
+
+btn.onclick = runSearch;
+input.addEventListener("keypress", e => {
+    if (e.key === "Enter") runSearch();
+});
+
+async function runSearch() {
+    const term = input.value.trim();
+    if (!term) return;
+
+    results.innerHTML = "<p>Searching…</p>";
+    count.textContent = "Searching…";
+
+    const t0 = performance.now();
+    const res = await fetch(`/api/search?term=${encodeURIComponent(term)}`);
+    const data = await res.json();
+    const t1 = Math.round(performance.now() - t0);
+
+    if (!data.length) {
+        results.innerHTML = "<p>No results found.</p>";
+        count.textContent = "0 results";
+        return;
+    }
+
+    count.innerHTML = `${data.length} results <span class="performance">${t1} ms</span>`;
+
+    let html = `
+    <table class="results-table">
+    <thead>
+        <tr>
+            <th>Study</th>
+            <th>Sample</th>
+            <th>Tissue</th>
+            <th>Isolation</th>
+            <th>Disease</th>
+        </tr>
+    </thead>
+    <tbody>`;
+
+    data.forEach(r => {
+        html += `
+        <tr>
+            <td>${r.study_accession}</td>
+            <td>${r.sample_id}</td>
+            <td>${r.tissue}</td>
+            <td>${r.isolation_method}</td>
+            <td>${r.disease}</td>
+        </tr>`;
+    });
+
+    html += "</tbody></table>";
+    results.innerHTML = html;
+}
+</script>
+
+</body>
+</html>
