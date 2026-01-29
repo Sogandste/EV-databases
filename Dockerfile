@@ -2,15 +2,18 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --default-timeout=100 -r requirements.txt
+COPY api ./api
 
-COPY . .
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_ENV=production
 
-EXPOSE 8000
+EXPOSE 5000
 
-CMD ["python", "app.py"]
-
-
+CMD ["python", "api/app.py"]
