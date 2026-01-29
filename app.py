@@ -1,7 +1,8 @@
 import os
+import csv
+import io
 import pyarrow.parquet as pq
-from collections import Counter
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 
 app = Flask(__name__)
 
@@ -37,11 +38,8 @@ EV_ONTOLOGY = {
 }
 
 SPECIES_OPTIONS = [
-    "Homo sapiens",
-    "Mus musculus",
-    "Rattus norvegicus",
-    "Bos taurus",
-    "Danio rerio"
+    "Homo sapiens", "Mus musculus", "Rattus norvegicus",
+    "Bos taurus", "Danio rerio"
 ]
 
 ISOLATION_OPTIONS = [
@@ -56,67 +54,39 @@ YEAR_OPTIONS = list(range(2005, 2026))
 
 SAFE_COLUMNS = ["VESICLE_TYPE", "species", "isolation_method", "YEAR"]
 
+
 # --------------------------------------------------
-# ✅ Streaming aggregation (NO pandas)
+# Helper: streaming row filter
 # --------------------------------------------------
-def stream_summary(filters):
-    vesicle_counter = Counter()
-    total = 0
+def row_matches(r, filters, search=None):
+    vt = str(r["VESICLE_TYPE"]).lower()
 
-    for rg in range(_parquet.num_row_groups):
-        table = _parquet.read_row_group(rg, columns=SAFE_COLUMNS)
-        rows = table.to_pylist()  # row-by-row, released per group
+    if filters["ev_syns"]:
+        if not any(s in vt for s in filters["ev_syns"]):
+            return False
 
-        for r in rows:
-            vt = str(r.get("VESICLE_TYPE", "")).lower()
-            sp = r.get("species")
-            iso = str(r.get("isolation_method", "")).lower()
-            yr = r.get("YEAR")
+    if filters["species"] and r["species"] != filters["species"]:
+        return False
 
-            # EV filter
-            if filters["ev_synonyms"]:
-                if not any(s in vt for s in filters["ev_synonyms"]):
-                    continue
+    if filters["isolation"] and filters["isolation"] not in str(r["isolation_method"]).lower():
+        return False
 
-            # species
-            if filters["species"] and sp != filters["species"]:
-                continue
+    if filters["year"] and r["YEAR"] != filters["year"]:
+        return False
 
-            # isolation
-            if filters["isolation"] and filters["isolation"] not in iso:
-                continue
+    if search and search not in vt:
+        return False
 
-            # year
-            if filters["year"] and yr != filters["year"]:
-                continue
-
-            total += 1
-            vesicle_counter[vt] += 1
-
-    return total, dict(vesicle_counter.most_common(10))
+    return True
 
 
 # --------------------------------------------------
-# Routes
+# UI
 # --------------------------------------------------
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
-    selected_ev = request.args.get("ev", "sEV (exosome-like)")
-    selected_species = request.args.get("species", "")
-    selected_isolation = request.args.get("isolation", "")
-    selected_year = request.args.get("year", "")
-
-    ontology = EV_ONTOLOGY.get(selected_ev)
-    ev_syns = [s.lower() for s in ontology["synonyms"]] if ontology else []
-
-    filters = {
-        "ev_synonyms": ev_syns,
-        "species": selected_species or None,
-        "isolation": selected_isolation.lower() if selected_isolation else None,
-        "year": int(selected_year) if selected_year.isdigit() else None
-    }
-
-    total, summary = stream_summary(filters)
+    ev = request.args.get("ev", "sEV (exosome-like)")
+    ontology = EV_ONTOLOGY.get(ev)
 
     return render_template(
         "index.html",
@@ -125,33 +95,117 @@ def home():
         species_options=SPECIES_OPTIONS,
         isolation_options=ISOLATION_OPTIONS,
         year_options=YEAR_OPTIONS,
-        selected_ev=selected_ev,
-        selected_species=selected_species,
-        selected_isolation=selected_isolation,
-        selected_year=selected_year,
-        total_records=total,
-        vesicle_summary=summary,
+        selected_ev=ev,
         go_term=ontology["go"] if ontology else "—"
     )
 
 
-@app.route("/case-study/jev")
-def case_study_jev():
-    total, summary = stream_summary({
-        "ev_synonyms": None,
-        "species": None,
-        "isolation": None,
-        "year": None
-    })
+# --------------------------------------------------
+# DataTables API (server-side, RAM-safe)
+# --------------------------------------------------
+@app.route("/api/table")
+def api_table():
+    start = int(request.args.get("start", 0))
+    length = int(request.args.get("length", 25))
+    search = request.args.get("search[value]", "").lower()
+
+    filters = {
+        "ev_syns": [
+            s.lower()
+            for s in EV_ONTOLOGY.get(
+                request.args.get("ev", ""), {}
+            ).get("synonyms", [])
+        ],
+        "species": request.args.get("species") or None,
+        "isolation": request.args.get("isolation", "").lower() or None,
+        "year": int(request.args.get("year"))
+        if request.args.get("year", "").isdigit()
+        else None
+    }
+
+    rows = []
+    matched = 0
+
+    for rg in range(_parquet.num_row_groups):
+        table = _parquet.read_row_group(rg, columns=SAFE_COLUMNS).to_pylist()
+
+        for r in table:
+            if not row_matches(r, filters, search):
+                continue
+
+            matched += 1
+
+            if matched <= start:
+                continue
+            if len(rows) >= length:
+                break
+
+            rows.append([
+                r["VESICLE_TYPE"],
+                r["species"],
+                r["isolation_method"],
+                r["YEAR"]
+            ])
+
+        if len(rows) >= length:
+            break
 
     return jsonify({
-        "total_records": total,
-        "vesicle_types": summary,
-        "ontology": EV_ONTOLOGY,
-        "application": APP_NAME,
-        "deployment": "Render free tier",
-        "memory_strategy": "row-group streaming aggregation"
+        "draw": int(request.args.get("draw", 1)),
+        "recordsTotal": matched,
+        "recordsFiltered": matched,
+        "data": rows
     })
+
+
+# --------------------------------------------------
+# ✅ CSV export – current page only
+# --------------------------------------------------
+@app.route("/api/export")
+def export_csv():
+    filters = {
+        "ev_syns": [
+            s.lower()
+            for s in EV_ONTOLOGY.get(
+                request.args.get("ev", ""), {}
+            ).get("synonyms", [])
+        ],
+        "species": request.args.get("species") or None,
+        "isolation": request.args.get("isolation", "").lower() or None,
+        "year": int(request.args.get("year"))
+        if request.args.get("year", "").isdigit()
+        else None
+    }
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Vesicle type", "Species", "Isolation", "Year"])
+
+    count = 0
+    for rg in range(_parquet.num_row_groups):
+        table = _parquet.read_row_group(rg, columns=SAFE_COLUMNS).to_pylist()
+        for r in table:
+            if not row_matches(r, filters):
+                continue
+            writer.writerow([
+                r["VESICLE_TYPE"],
+                r["species"],
+                r["isolation_method"],
+                r["YEAR"]
+            ])
+            count += 1
+            if count >= 1000:  # hard safety cap
+                break
+        if count >= 1000:
+            break
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=ev_query_page.csv"
+        }
+    )
 
 
 if __name__ == "__main__":

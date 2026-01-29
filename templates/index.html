@@ -4,156 +4,180 @@
 <meta charset="UTF-8">
 <title>{{ app_name }}</title>
 
+<link rel="stylesheet"
+ href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+
 <style>
-:root {
-  --primary: #1f3a5f;
-  --accent: #3a7ca5;
-  --bg: #f4f6f8;
-  --card: #ffffff;
-  --text: #1c1c1c;
+:root{
+  --navy:#0b2545;
+  --green:#1f6f54;
+  --bg:#f2f4f6;
+  --gray:#8a8f98;
+  --white:#ffffff;
 }
 
-body {
-  margin: 0;
-  padding: 40px;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: var(--bg);
-  color: var(--text);
+body{
+  margin:0;
+  padding:28px;
+  font-family:system-ui,-apple-system,sans-serif;
+  background:var(--bg);
+  color:var(--navy);
 }
 
-h1 { color: var(--primary); }
-
-.subtitle {
-  color: var(--accent);
-  margin-bottom: 30px;
+header{
+  max-width:1200px;
+  margin:auto;
+  display:flex;
+  align-items:center;
+  gap:14px;
 }
 
-.card {
-  background: var(--card);
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
-  margin-bottom: 25px;
+.logo{
+  width:42px;height:42px;
+  border-radius:50%;
+  background:var(--green);
+  color:white;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
 }
 
-select {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  margin-right: 12px;
+h1{margin:0;font-size:26px}
+
+.context{
+  margin:8px auto 18px auto;
+  max-width:1200px;
+  color:var(--gray);
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
+.filters{
+  max-width:1200px;
+  margin:auto;
+  background:var(--white);
+  padding:14px;
+  border-radius:12px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:12px;
 }
 
-.stat {
-  background: var(--card);
-  padding: 18px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+select{
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #dcdfe3;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+.actions{
+  max-width:1200px;
+  margin:12px auto;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:14px;
+  color:var(--gray);
 }
 
-th, td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #eee;
+button{
+  background:var(--green);
+  color:white;
+  border:none;
+  padding:8px 14px;
+  border-radius:8px;
+  cursor:pointer;
 }
 
-th { background: #eef2f6; }
+.empty{
+  text-align:center;
+  padding:40px;
+  color:var(--gray);
+}
 </style>
 </head>
 
 <body>
 
-<h1>{{ app_name }}</h1>
-<div class="subtitle">
-Ontology‑aware exploration of extracellular vesicle metadata
+<header>
+  <div class="logo">EV</div>
+  <h1>{{ app_name }}</h1>
+</header>
+
+<div class="context">
+  EV category: <strong>{{ selected_ev }}</strong> · GO term: {{ go_term }}
 </div>
 
-<div class="card">
-  <form method="get">
-    <strong>EV:</strong>
-    <select name="ev" onchange="this.form.submit()">
-      {% for ev in ev_options %}
-        <option value="{{ ev }}" {% if ev == selected_ev %}selected{% endif %}>
-          {{ ev }}
-        </option>
-      {% endfor %}
-    </select>
-
-    <strong>Species:</strong>
-    <select name="species" onchange="this.form.submit()">
-      <option value="">All</option>
-      {% for s in species_options %}
-        <option value="{{ s }}" {% if s == selected_species %}selected{% endif %}>
-          {{ s }}
-        </option>
-      {% endfor %}
-    </select>
-
-    <strong>Isolation:</strong>
-    <select name="isolation" onchange="this.form.submit()">
-      <option value="">All</option>
-      {% for i in isolation_options %}
-        <option value="{{ i }}" {% if i == selected_isolation %}selected{% endif %}>
-          {{ i }}
-        </option>
-      {% endfor %}
-    </select>
-
-    <strong>Year:</strong>
-    <select name="year" onchange="this.form.submit()">
-      <option value="">All</option>
-      {% for y in year_options %}
-        <option value="{{ y }}" {% if y|string == selected_year %}selected{% endif %}>
-          {{ y }}
-        </option>
-      {% endfor %}
-    </select>
-  </form>
+<div class="filters">
+  <select id="ev">
+    {% for ev in ev_options %}
+      <option value="{{ ev }}" {% if ev==selected_ev %}selected{% endif %}>{{ ev }}</option>
+    {% endfor %}
+  </select>
+  <select id="species"><option value="">All species</option>
+    {% for s in species_options %}<option>{{ s }}</option>{% endfor %}
+  </select>
+  <select id="isolation"><option value="">All isolation</option>
+    {% for i in isolation_options %}<option>{{ i }}</option>{% endfor %}
+  </select>
+  <select id="year"><option value="">All years</option>
+    {% for y in year_options %}<option>{{ y }}</option>{% endfor %}
+  </select>
 </div>
 
-<div class="stats">
-  <div class="stat">
-    <strong>Total records</strong><br>
-    {{ total_records }}
-  </div>
-  <div class="stat">
-    <strong>GO term</strong><br>
-    {{ go_term }}
-  </div>
-  <div class="stat">
-    <strong>Deployment</strong><br>
-    Render Free Tier
-  </div>
+<div class="actions">
+  <span id="resultInfo"></span>
+  <button id="exportBtn">Export CSV (current query)</button>
 </div>
 
-<div class="card">
-  <h3>Vesicle type distribution</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Vesicle type</th>
-        <th>Count</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for k, v in vesicle_summary.items() %}
-      <tr>
-        <td>{{ k }}</td>
-        <td>{{ v }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<table id="evTable" class="display" style="width:100%;max-width:1200px;margin:auto">
+  <thead>
+    <tr>
+      <th>Vesicle type</th>
+      <th>Species</th>
+      <th>Isolation</th>
+      <th>Year</th>
+    </tr>
+  </thead>
+</table>
+
+<div id="empty" class="empty" style="display:none">
+  No records match your current filters.
 </div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+
+<script>
+const table = $('#evTable').DataTable({
+  serverSide:true,
+  processing:true,
+  ajax:{
+    url:"/api/table",
+    data:function(d){
+      d.ev=$('#ev').val();
+      d.species=$('#species').val();
+      d.isolation=$('#isolation').val();
+      d.year=$('#year').val();
+    }
+  },
+  drawCallback:function(settings){
+    const info=settings.json.recordsFiltered;
+    $('#resultInfo').text(info+" records found");
+    $('#empty').toggle(info===0);
+  }
+});
+
+$('select').on('change',()=>table.ajax.reload());
+
+$('#exportBtn').on('click',()=>{
+  const params=$.param({
+    ev:$('#ev').val(),
+    species:$('#species').val(),
+    isolation:$('#isolation').val(),
+    year:$('#year').val()
+  });
+  window.location="/api/export?"+params;
+});
+</script>
 
 </body>
 </html>
