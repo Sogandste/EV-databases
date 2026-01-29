@@ -1,7 +1,6 @@
 import os
 import pyarrow.parquet as pq
-import pandas as pd
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
@@ -13,63 +12,66 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
 if not os.path.exists(DATA_PATH):
-    raise RuntimeError(f"Parquet file not found: {DATA_PATH}")
+    raise RuntimeError("Parquet file not found")
+
+_parquet = pq.ParquetFile(DATA_PATH)
 
 # --------------------------------------------------
-# Ontology mappings (minimal, real)
+# Ontology-aware EV definitions (MISEV-aligned)
 # --------------------------------------------------
 EV_ONTOLOGY = {
-    "exosome": ["exosome", "small extracellular vesicle", "sev"],
-    "microvesicle": ["microvesicle", "ectosome"],
-    "extracellular vesicle": ["extracellular vesicle", "ev"]
-}
-
-GO_TERMS = {
-    "extracellular region": "GO:0005576",
-    "extracellular exosome": "GO:0070062",
-    "extracellular vesicle": "GO:1903561"
+    "sEV (exosome-like)": {
+        "synonyms": ["exosome", "small extracellular vesicle", "sev"],
+        "go": "GO:0070062"
+    },
+    "microvesicle": {
+        "synonyms": ["microvesicle", "ectosome"],
+        "go": "GO:1903561"
+    },
+    "extracellular vesicle (generic)": {
+        "synonyms": ["extracellular vesicle", "ev"],
+        "go": "GO:1903561"
+    },
+    "apoptotic body": {
+        "synonyms": ["apoptotic body"],
+        "go": "GO:0097209"
+    }
 }
 
 # --------------------------------------------------
-# Columns we actually need (verified from schema)
+# Controlled vocabularies (RAM-safe)
 # --------------------------------------------------
+SPECIES_OPTIONS = [
+    "Homo sapiens",
+    "Mus musculus",
+    "Rattus norvegicus",
+    "Bos taurus",
+    "Danio rerio"
+]
+
+ISOLATION_OPTIONS = [
+    "ultracentrifugation",
+    "size exclusion chromatography",
+    "precipitation",
+    "density gradient",
+    "immunoaffinity"
+]
+
+# ✅ YEAR range (static, safe, no scan)
+YEAR_OPTIONS = list(range(2005, 2026))
+
 SAFE_COLUMNS = [
     "VESICLE_TYPE",
-    "isolation_method",
     "species",
-    "DATABASE"
+    "isolation_method",
+    "YEAR"
 ]
 
 # --------------------------------------------------
-# Parquet reader (memory-safe)
+# Memory-safe parquet reader
 # --------------------------------------------------
-_parquet = pq.ParquetFile(DATA_PATH)
-
-
-def read_safe_df(columns):
-    """
-    Read only selected columns using low-level pyarrow API
-    to avoid loading the full dataset into memory.
-    """
-    table = _parquet.read(columns=columns)
-    return table.to_pandas()
-
-
-# --------------------------------------------------
-# Ontology filter
-# --------------------------------------------------
-def filter_by_ev_ontology(df, term):
-    if "VESICLE_TYPE" not in df.columns:
-        return df
-
-    term = term.lower()
-    synonyms = EV_ONTOLOGY.get(term, [term])
-
-    mask = df["VESICLE_TYPE"].astype(str).str.lower().apply(
-        lambda x: any(s in x for s in synonyms)
-    )
-
-    return df[mask]
+def read_df():
+    return _parquet.read(columns=SAFE_COLUMNS).to_pandas()
 
 
 # --------------------------------------------------
@@ -77,54 +79,78 @@ def filter_by_ev_ontology(df, term):
 # --------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
-    ev_term = request.args.get("ev", "").strip().lower()
+    selected_ev = request.args.get("ev", "sEV (exosome-like)")
+    selected_species = request.args.get("species", "")
+    selected_isolation = request.args.get("isolation", "")
+    selected_year = request.args.get("year", "")
 
-    df = read_safe_df(SAFE_COLUMNS)
+    df = read_df()
 
-    if ev_term:
-        df = filter_by_ev_ontology(df, ev_term)
+    # EV ontology filter
+    ontology = EV_ONTOLOGY.get(selected_ev)
+    if ontology:
+        syns = ontology["synonyms"]
+        df = df[
+            df["VESICLE_TYPE"]
+            .astype(str)
+            .str.lower()
+            .apply(lambda x: any(s in x for s in syns))
+        ]
 
-    return jsonify({
-        "status": "ok",
-        "records": len(df),
-        "columns": list(df.columns),
-        "ev_filter": ev_term or None
-    })
+    # Species filter
+    if selected_species:
+        df = df[df["species"] == selected_species]
+
+    # Isolation filter
+    if selected_isolation:
+        df = df[
+            df["isolation_method"]
+            .astype(str)
+            .str.lower()
+            .str.contains(selected_isolation.lower())
+        ]
+
+    # ✅ YEAR filter (null-safe)
+    if selected_year:
+        try:
+            year_int = int(selected_year)
+            df = df[df["YEAR"] == year_int]
+        except ValueError:
+            pass  # ignore invalid year silently
+
+    summary = df["VESICLE_TYPE"].value_counts().head(10).to_dict()
+
+    return render_template(
+        "index.html",
+        app_name=APP_NAME,
+        ev_options=list(EV_ONTOLOGY.keys()),
+        species_options=SPECIES_OPTIONS,
+        isolation_options=ISOLATION_OPTIONS,
+        year_options=YEAR_OPTIONS,
+        selected_ev=selected_ev,
+        selected_species=selected_species,
+        selected_isolation=selected_isolation,
+        selected_year=selected_year,
+        total_records=len(df),
+        vesicle_summary=summary,
+        go_term=ontology["go"] if ontology else "—"
+    )
 
 
-# --------------------------------------------------
-# ✅ Case Study Endpoint – JEV (OOM-safe)
-# --------------------------------------------------
 @app.route("/case-study/jev", methods=["GET"])
 def case_study_jev():
-    df = read_safe_df(SAFE_COLUMNS)
+    df = read_df()
 
-    summary = {
+    return jsonify({
         "total_records": len(df),
-        "vesicle_types": (
-            df["VESICLE_TYPE"].value_counts().head(10).to_dict()
-            if "VESICLE_TYPE" in df.columns else {}
-        ),
-        "isolation_methods": (
-            df["isolation_method"].value_counts().head(10).to_dict()
-            if "isolation_method" in df.columns else {}
-        ),
-        "species": (
-            df["species"].value_counts().to_dict()
-            if "species" in df.columns else {}
-        ),
-        "ontology": {
-            "ev_terms": EV_ONTOLOGY,
-            "go_terms": GO_TERMS
-        },
-        "reproducibility": {
-            "data_file": "unified_ev_metadata.parquet",
-            "deployment": "Render free tier",
-            "application": APP_NAME
-        }
-    }
-
-    return jsonify(summary)
+        "vesicle_types": df["VESICLE_TYPE"].value_counts().to_dict(),
+        "species_distribution": df["species"].value_counts().to_dict(),
+        "isolation_methods": df["isolation_method"].value_counts().to_dict(),
+        "year_distribution": df["YEAR"].value_counts().sort_index().to_dict(),
+        "ontology": EV_ONTOLOGY,
+        "application": APP_NAME,
+        "deployment": "Render free tier"
+    })
 
 
 # --------------------------------------------------

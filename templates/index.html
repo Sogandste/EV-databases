@@ -1,81 +1,159 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>EVisionary | EV Metadata Explorer</title>
-    <link rel="stylesheet" href="/static/style.css">
+<meta charset="UTF-8">
+<title>{{ app_name }}</title>
+
+<style>
+:root {
+  --primary: #1f3a5f;
+  --accent: #3a7ca5;
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --text: #1c1c1c;
+}
+
+body {
+  margin: 0;
+  padding: 40px;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1 { color: var(--primary); }
+
+.subtitle {
+  color: var(--accent);
+  margin-bottom: 30px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+  margin-bottom: 25px;
+}
+
+select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-right: 12px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat {
+  background: var(--card);
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+th { background: #eef2f6; }
+</style>
 </head>
+
 <body>
 
 <h1>{{ app_name }}</h1>
-<p>{{ subtitle }}</p>
-
-<form method="get" action="/search">
-
-<select name="column1">
-    <option value="">Column 1</option>
-    {% for col in columns %}
-        <option value="{{ col }}" {% if col == column1 %}selected{% endif %}>{{ col }}</option>
-    {% endfor %}
-</select>
-
-<input name="q1" value="{{ q1 or '' }}" placeholder="Search term 1">
-
-<select name="operator">
-    <option value="AND" {% if operator == "AND" %}selected{% endif %}>AND</option>
-    <option value="OR" {% if operator == "OR" %}selected{% endif %}>OR</option>
-</select>
-
-<select name="column2">
-    <option value="">Column 2</option>
-    {% for col in columns %}
-        <option value="{{ col }}" {% if col == column2 %}selected{% endif %}>{{ col }}</option>
-    {% endfor %}
-</select>
-
-<input name="q2" value="{{ q2 or '' }}" placeholder="Search term 2">
-
-<input name="ontology" value="{{ ontology or '' }}" placeholder="Ontology term (e.g. exosome)">
-
-<button type="submit">Search</button>
-
-{% if results %}
-<a class="export"
-   href="/export?ontology={{ ontology }}">Export CSV</a>
-{% endif %}
-
-</form>
-
-{% if results %}
-<table>
-<thead>
-<tr>
-{% for k in results[0].keys() %}
-<th>{{ k }}</th>
-{% endfor %}
-</tr>
-</thead>
-<tbody>
-{% for row in results %}
-<tr>
-{% for v in row.values() %}
-<td>{{ v }}</td>
-{% endfor %}
-</tr>
-{% endfor %}
-</tbody>
-</table>
-
-<div class="pagination">
-{% if page > 1 %}
-<a href="?page={{ page-1 }}">Previous</a>
-{% endif %}
-<span>Page {{ page }} of {{ total_pages }}</span>
-{% if page < total_pages %}
-<a href="?page={{ page+1 }}">Next</a>
-{% endif %}
+<div class="subtitle">
+Ontology‑aware exploration of extracellular vesicle metadata
 </div>
-{% endif %}
+
+<div class="card">
+  <form method="get">
+    <strong>EV:</strong>
+    <select name="ev" onchange="this.form.submit()">
+      {% for ev in ev_options %}
+        <option value="{{ ev }}" {% if ev == selected_ev %}selected{% endif %}>
+          {{ ev }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <strong>Species:</strong>
+    <select name="species" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for s in species_options %}
+        <option value="{{ s }}" {% if s == selected_species %}selected{% endif %}>
+          {{ s }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <strong>Isolation:</strong>
+    <select name="isolation" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for i in isolation_options %}
+        <option value="{{ i }}" {% if i == selected_isolation %}selected{% endif %}>
+          {{ i }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <strong>Year:</strong>
+    <select name="year" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for y in year_options %}
+        <option value="{{ y }}" {% if y|string == selected_year %}selected{% endif %}>
+          {{ y }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <strong>Total records</strong><br>
+    {{ total_records }}
+  </div>
+  <div class="stat">
+    <strong>GO term</strong><br>
+    {{ go_term }}
+  </div>
+  <div class="stat">
+    <strong>Deployment</strong><br>
+    Render Free Tier
+  </div>
+</div>
+
+<div class="card">
+  <h3>Vesicle type distribution</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Vesicle type</th>
+        <th>Count</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for k, v in vesicle_summary.items() %}
+      <tr>
+        <td>{{ k }}</td>
+        <td>{{ v }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 
 </body>
 </html>
