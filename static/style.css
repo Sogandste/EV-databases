@@ -1,0 +1,77 @@
+:root {
+    --primary: #1f3c88;
+    --secondary: #4f6d7a;
+    --bg: #f7f9fc;
+    --table-head: #e3ebf5;
+    --accent: #c9d8ee;
+    --text: #1a1a1a;
+}
+
+body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    margin: 40px;
+    background: var(--bg);
+    color: var(--text);
+}
+
+h1 {
+    color: var(--primary);
+}
+
+p {
+    color: var(--secondary);
+}
+
+input, select {
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #bbb;
+}
+
+button {
+    padding: 7px 14px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--secondary);
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+    margin-top: 20px;
+}
+
+th, td {
+    border: 1px solid #d0d7e2;
+    padding: 6px;
+}
+
+th {
+    background: var(--table-head);
+    color: var(--primary);
+}
+
+tr:hover {
+    background: var(--accent);
+}
+
+mark {
+    background: #ffe58f;
+}
+
+.pagination {
+    margin-top: 15px;
+}
+
+.export {
+    margin-left: 10px;
+    font-size: 13px;
+    color: var(--primary);
+}

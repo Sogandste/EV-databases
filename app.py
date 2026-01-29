@@ -1,133 +1,113 @@
-from flask import Flask, jsonify
-import pandas as pd
 import os
+import pandas as pd
+from flask import Flask, render_template, request, jsonify, Response
+from ontology_terms import normalize_term
 
 app = Flask(__name__)
 
-# --------------------------------------------------
-# Configuration: smart parquet path (local / Docker / Render)
-# --------------------------------------------------
+# ---------- Data path ----------
+LOCAL_PATH = "/Users/sogand/Downloads/EV_Databases/Unified_Output/unified_ev_metadata.parquet"
+DOCKER_PATH = "/app/data/unified_ev_metadata.parquet"
+DATA_PATH = DOCKER_PATH if os.path.exists(DOCKER_PATH) else LOCAL_PATH
 
-def get_parquet_path():
-    """
-    Detect parquet file path in different environments.
-    Priority:
-    1. ENV variable EV_PARQUET_PATH
-    2. Local development path
-    3. Docker/Render default path
-    """
-    if os.getenv("EV_PARQUET_PATH"):
-        return os.getenv("EV_PARQUET_PATH")
+df = pd.read_parquet(DATA_PATH)
+PAGE_SIZE = 25
 
-    local_path = "/Users/sogand/Downloads/EV_Databases/Unified_Output/unified_ev_metadata.parquet"
-    docker_path = "/app/data/unified_ev_metadata.parquet"
-
-    if os.path.exists(local_path):
-        return local_path
-    elif os.path.exists(docker_path):
-        return docker_path
-    else:
-        raise FileNotFoundError("Parquet file not found in known locations.")
-
-
-def load_parquet():
-    path = get_parquet_path()
-    return pd.read_parquet(path)
-
-
-# --------------------------------------------------
-# Ontology & synonym mappings (minimal, defensible)
-# --------------------------------------------------
-
-EV_SYNONYMS = {
-    "extracellular vesicle": [
-        "extracellular vesicle",
-        "extracellular vesicles",
-        "ev",
-        "evs",
-        "exosome",
-        "exosomes",
-        "small extracellular vesicle",
-        "sev",
-        "sevs"
-    ]
-}
-
-GO_TERMS = {
-    "extracellular vesicle": "GO:1903561"
-}
-
-
-# --------------------------------------------------
-# Helper functions
-# --------------------------------------------------
-
-def filter_by_ev_synonyms(df, column_name="sample_description"):
-    """
-    Filter dataframe rows using EV-related synonyms.
-    """
-    terms = EV_SYNONYMS["extracellular vesicle"]
-    pattern = "|".join(terms)
-
-    if column_name not in df.columns:
-        return df  # fail-safe: do not filter if column missing
-
-    return df[df[column_name].str.contains(pattern, case=False, na=False)]
-
-
-# --------------------------------------------------
-# API endpoints
-# --------------------------------------------------
-
+# ---------- Home ----------
 @app.route("/")
 def home():
+    return render_template("index.html", columns=list(df.columns))
+
+# ---------- Search ----------
+@app.route("/search")
+def search():
+    col1 = request.args.get("column1", "")
+    q1 = request.args.get("q1", "").strip()
+
+    col2 = request.args.get("column2", "")
+    q2 = request.args.get("q2", "").strip()
+
+    operator = request.args.get("operator", "AND")
+    ontology_term = request.args.get("ontology", "").strip()
+    page = int(request.args.get("page", 1))
+
+    filtered = df
+
+    # ---- Text filters ----
+    mask1 = df[col1].astype(str).str.contains(q1, case=False, na=False) if col1 in df.columns and q1 else None
+    mask2 = df[col2].astype(str).str.contains(q2, case=False, na=False) if col2 in df.columns and q2 else None
+
+    if mask1 is not None and mask2 is not None:
+        filtered = df[mask1 & mask2] if operator == "AND" else df[mask1 | mask2]
+    elif mask1 is not None:
+        filtered = df[mask1]
+    elif mask2 is not None:
+        filtered = df[mask2]
+
+    # ---- Ontology-aware filter ----
+    ont = normalize_term(ontology_term)
+    if ont:
+        term_label = ont["label"]
+        filtered = filtered[
+            filtered.apply(
+                lambda row: term_label in " ".join(row.astype(str)).lower(),
+                axis=1
+            )
+        ]
+
+    # ---- Pagination ----
+    total_pages = (len(filtered) - 1) // PAGE_SIZE + 1 if len(filtered) else 0
+    start = (page - 1) * PAGE_SIZE
+    end = start + PAGE_SIZE
+
+    results = filtered.iloc[start:end].to_dict(orient="records")
+
+    return render_template(
+        "index.html",
+        columns=list(df.columns),
+        results=results,
+        column1=col1,
+        column2=col2,
+        q1=q1,
+        q2=q2,
+        operator=operator,
+        ontology=ontology_term,
+        page=page,
+        total_pages=total_pages
+    )
+
+# ---------- Export ----------
+@app.route("/export")
+def export_csv():
+    ontology_term = request.args.get("ontology", "")
+    ont = normalize_term(ontology_term)
+
+    filtered = df
+    if ont:
+        filtered = filtered[
+            filtered.apply(
+                lambda row: ont["label"] in " ".join(row.astype(str)).lower(),
+                axis=1
+            )
+        ]
+
+    return Response(
+        filtered.to_csv(index=False),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=ev_ontology_filtered.csv"}
+    )
+
+# ---------- Case study ----------
+@app.route("/case-study/jev")
+def case_study():
     return jsonify({
-        "message": "EV metadata harmonization API",
-        "endpoints": ["/case-study/jev"]
+        "ontology_terms_supported": ["exosome", "extracellular vesicle", "microvesicle"],
+        "total_records": int(len(df))
     })
 
-
-@app.route("/case-study/jev", methods=["GET"])
-def case_study_jev():
-    """
-    JEV case study endpoint:
-    Ontology-aware harmonization of EV proteomics metadata
-    across EV-specific databases (ExoCarta & Vesiclepedia).
-    """
-
-    df = load_parquet()
-
-    # ---- Filter EV-specific databases only ----
-    if "source_database" in df.columns:
-        df = df[df["source_database"].isin(["ExoCarta", "Vesiclepedia"])]
-
-    # ---- Apply EV synonym harmonization ----
-    df = filter_by_ev_synonyms(df)
-
-    # ---- Build summary statistics ----
-    summary = {
-        "query": {
-            "entity": "extracellular vesicle",
-            "ontology": [GO_TERMS["extracellular vesicle"]],
-            "synonyms_used": EV_SYNONYMS["extracellular vesicle"]
-        },
-        "results": {
-            "total_records": int(len(df)),
-            "unique_proteins": int(df["protein_accession"].nunique())
-            if "protein_accession" in df.columns else None,
-            "databases_covered": sorted(df["source_database"].unique().tolist())
-            if "source_database" in df.columns else [],
-            "species_distribution": df["species"].value_counts().to_dict()
-            if "species" in df.columns else {}
-        }
-    }
-
-    return jsonify(summary)
-
-
-# --------------------------------------------------
-# Run locally
-# --------------------------------------------------
+@app.route("/favicon.ico")
+def favicon():
+    return "", 204
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

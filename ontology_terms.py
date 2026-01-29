@@ -1,20 +1,22 @@
-# ontology_terms.py
-# Plain Python file (NOT RTF)
+# Ontology-aware EV / GO term normalization
 
-ONTOLOGY_MAP = {
-    "extracellular vesicle": [
-        "exosome",
-        "microvesicle",
-        "ectosome",
-        "apoptotic body"
-    ],
-    "mesenchymal stromal cell": [
-        "MSC",
-        "mesenchymal stem cell"
-    ],
-    "proteomics": [
-        "mass spectrometry",
-        "LC-MS/MS"
-    ]
+EV_TERMS = {
+    "exosome": {
+        "label": "exosome",
+        "ontology_id": "GO:0070062"
+    },
+    "extracellular vesicle": {
+        "label": "extracellular vesicle",
+        "ontology_id": "GO:1903561"
+    },
+    "microvesicle": {
+        "label": "microvesicle",
+        "ontology_id": "GO:1903561"
+    }
 }
 
+def normalize_term(term: str):
+    if not term:
+        return None
+    term = term.lower().strip()
+    return EV_TERMS.get(term)
