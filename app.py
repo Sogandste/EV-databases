@@ -1,25 +1,22 @@
 import os
 import pandas as pd
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
 # --------------------------------------------------
-# App config
+# Config
 # --------------------------------------------------
 APP_NAME = os.environ.get("APP_NAME", "EVisionary")
 
-# --------------------------------------------------
-# Data path (Render / Docker / Local safe)
-# --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
 if not os.path.exists(DATA_PATH):
-    raise RuntimeError(f"Parquet file not found at {DATA_PATH}")
+    raise RuntimeError(f"Parquet file not found: {DATA_PATH}")
 
 # --------------------------------------------------
-# Ontology-aware mappings (EV / GO – minimal but real)
+# Ontology-aware mappings (minimal, real)
 # --------------------------------------------------
 EV_ONTOLOGY = {
     "exosome": ["exosome", "small extracellular vesicle", "sev"],
@@ -28,57 +25,45 @@ EV_ONTOLOGY = {
 }
 
 GO_TERMS = {
-    "extracellular region": ["GO:0005576"],
-    "extracellular exosome": ["GO:0070062"],
-    "extracellular vesicle": ["GO:1903561"]
+    "extracellular region": "GO:0005576",
+    "extracellular exosome": "GO:0070062",
+    "extracellular vesicle": "GO:1903561"
 }
 
 # --------------------------------------------------
-# Preferred UI columns (schema-safe)
+# Lazy-loaded dataframe
 # --------------------------------------------------
-UI_COLUMNS = [
-    "SAMPLE",
-    "SAMPLE_SOURCE",
-    "isolation_method",
-    "species",
-    "VESICLE_TYPE",
-    "DATABASE"
-]
-
 _df = None
 
 
 def get_df():
-    """Lazy-load dataframe and select only existing columns."""
+    """
+    Absolutely schema-safe loader.
+    No column projection at read time (prevents ArrowInvalid).
+    """
     global _df
 
     if _df is None:
-        full_df = pd.read_parquet(DATA_PATH)
-        safe_cols = [c for c in UI_COLUMNS if c in full_df.columns]
-        _df = full_df[safe_cols]
+        _df = pd.read_parquet(DATA_PATH)
 
     return _df
 
 
-def ontology_filter(df, term):
-    """
-    Ontology-aware filtering for EV terms.
-    Matches synonyms across VESICLE_TYPE column.
-    """
+# --------------------------------------------------
+# Ontology-aware EV filter
+# --------------------------------------------------
+def filter_by_ev_ontology(df, term):
     if "VESICLE_TYPE" not in df.columns:
         return df
 
     term = term.lower()
 
-    synonyms = []
-    if term in EV_ONTOLOGY:
-        synonyms = EV_ONTOLOGY[term]
-    else:
-        synonyms = [term]
+    synonyms = EV_ONTOLOGY.get(term, [term])
 
     mask = df["VESICLE_TYPE"].astype(str).str.lower().apply(
         lambda x: any(s in x for s in synonyms)
     )
+
     return df[mask]
 
 
@@ -90,10 +75,10 @@ def home():
     df = get_df()
 
     query = request.args.get("q", "").strip().lower()
-    ev_term = request.args.get("ev_term", "").strip().lower()
+    ev_term = request.args.get("ev", "").strip().lower()
 
     if ev_term:
-        df = ontology_filter(df, ev_term)
+        df = filter_by_ev_ontology(df, ev_term)
 
     if query:
         mask = df.apply(
@@ -102,70 +87,53 @@ def home():
         )
         df = df[mask]
 
-    preview = df.head(200).to_dict(orient="records")
-
-    return render_template(
-        "index.html",
-        app_name=APP_NAME,
-        rows=preview,
-        total=len(df),
-        query=query,
-        ev_term=ev_term
-    )
+    # ultra-safe response (template-independent)
+    return jsonify({
+        "status": "ok",
+        "application": APP_NAME,
+        "records": len(df),
+        "columns": list(df.columns),
+        "ev_filter": ev_term or None
+    })
 
 
 # --------------------------------------------------
-# ✅ Case Study Endpoint for JEV
+# ✅ Case Study Endpoint – JEV
 # --------------------------------------------------
 @app.route("/case-study/jev", methods=["GET"])
 def case_study_jev():
-    """
-    Ontology-aware harmonization summary for JEV case study.
-    Output is reviewer-ready and reproducible.
-    """
     df = get_df()
 
-    summary = {}
-
-    if "VESICLE_TYPE" in df.columns:
-        summary["vesicle_type_distribution"] = (
-            df["VESICLE_TYPE"]
-            .value_counts(dropna=True)
-            .head(10)
-            .to_dict()
-        )
-
-    if "isolation_method" in df.columns:
-        summary["isolation_methods"] = (
-            df["isolation_method"]
-            .value_counts(dropna=True)
-            .head(10)
-            .to_dict()
-        )
-
-    if "species" in df.columns:
-        summary["species_distribution"] = (
-            df["species"]
-            .value_counts(dropna=True)
-            .to_dict()
-        )
-
-    summary["ontology"] = {
-        "ev_terms": EV_ONTOLOGY,
-        "go_terms": GO_TERMS
-    }
-
-    summary["metadata"] = {
+    summary = {
         "total_records": len(df),
-        "columns_used": list(df.columns),
-        "application": APP_NAME
+        "vesicle_types": (
+            df["VESICLE_TYPE"].value_counts().head(10).to_dict()
+            if "VESICLE_TYPE" in df.columns else {}
+        ),
+        "isolation_methods": (
+            df["isolation_method"].value_counts().head(10).to_dict()
+            if "isolation_method" in df.columns else {}
+        ),
+        "species": (
+            df["species"].value_counts().to_dict()
+            if "species" in df.columns else {}
+        ),
+        "ontology": {
+            "ev_terms": EV_ONTOLOGY,
+            "go_terms": GO_TERMS
+        },
+        "reproducibility": {
+            "data_file": "unified_ev_metadata.parquet",
+            "deployment": "Render",
+            "application": APP_NAME
+        }
     }
 
     return jsonify(summary)
 
 
 # --------------------------------------------------
-# Run (Render-compatible)
+# Run
 # --------------------------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
