@@ -1,213 +1,123 @@
 import os
-import csv
-import io
 import pyarrow.parquet as pq
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, jsonify, request, render_template
 
 app = Flask(__name__)
 
-# --------------------------------------------------
-# Config
-# --------------------------------------------------
-APP_NAME = os.environ.get("APP_NAME", "EVisionary")
+# --- Config ---
+APP_NAME = "EVisionary"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
-_parquet = pq.ParquetFile(DATA_PATH)
+# --- Global Schema Info (Low RAM) ---
+_parquet = None
+_columns = []
+_total_records = 0
+_col_map = {}
 
-# --------------------------------------------------
-# Ontology-aware EV definitions
-# --------------------------------------------------
-EV_ONTOLOGY = {
-    "sEV (exosome-like)": {
-        "synonyms": ["exosome", "small extracellular vesicle", "sev"],
-        "go": "GO:0070062"
-    },
-    "microvesicle": {
-        "synonyms": ["microvesicle", "ectosome"],
-        "go": "GO:1903561"
-    },
-    "extracellular vesicle (generic)": {
-        "synonyms": ["extracellular vesicle", "ev"],
-        "go": "GO:1903561"
-    },
-    "apoptotic body": {
-        "synonyms": ["apoptotic body"],
-        "go": "GO:0097209"
-    }
-}
+def init_db():
+    global _parquet, _columns, _total_records, _col_map
+    try:
+        _parquet = pq.ParquetFile(DATA_PATH)
+        _columns = _parquet.schema.names
+        _total_records = _parquet.metadata.num_rows
+        
+        # --- REVIEWER LOGIC: Intelligent Column Mapping ---
+        # We try to map the random column names to scientific terms
+        # Priorities for Content Type (Protein vs RNA)
+        ctype_candidates = ["CONTENT_TYPE", "MOLECULE_TYPE", "TYPE", "CAT_TYPE"]
+        # Priorities for Gene/Protein Name
+        name_candidates = ["GENE_SYMBOL", "GENE_NAME", "PROTEIN_NAME", "NAME", "SYMBOL", "miRNA_ID"]
+        
+        _col_map = {
+            "type": next((c for c in ctype_candidates if c in _columns), "VESICLE_TYPE"), # Fallback
+            "name": next((c for c in name_candidates if c in _columns), None),
+            "species": "species" if "species" in _columns else "SPECIES",
+            "method": "isolation_method" if "isolation_method" in _columns else "METHOD",
+            "year": "YEAR" if "YEAR" in _columns else "year"
+        }
+        print(f"✅ Schema Mapped: {_col_map}")
+        
+    except Exception as e:
+        print(f"❌ Error loading Parquet: {e}")
 
-SPECIES_OPTIONS = [
-    "Homo sapiens", "Mus musculus", "Rattus norvegicus",
-    "Bos taurus", "Danio rerio"
-]
+init_db()
 
-ISOLATION_OPTIONS = [
-    "ultracentrifugation",
-    "size exclusion chromatography",
-    "precipitation",
-    "density gradient",
-    "immunoaffinity"
-]
+# --- Search Engine (Streaming) ---
+def search_engine(query, limit=100):
+    if not _parquet:
+        return []
 
-YEAR_OPTIONS = list(range(2005, 2026))
-
-SAFE_COLUMNS = ["VESICLE_TYPE", "species", "isolation_method", "YEAR"]
-
-
-# --------------------------------------------------
-# Helper: streaming row filter
-# --------------------------------------------------
-def row_matches(r, filters, search=None):
-    vt = str(r["VESICLE_TYPE"]).lower()
-
-    if filters["ev_syns"]:
-        if not any(s in vt for s in filters["ev_syns"]):
-            return False
-
-    if filters["species"] and r["species"] != filters["species"]:
-        return False
-
-    if filters["isolation"] and filters["isolation"] not in str(r["isolation_method"]).lower():
-        return False
-
-    if filters["year"] and r["YEAR"] != filters["year"]:
-        return False
-
-    if search and search not in vt:
-        return False
-
-    return True
-
-
-# --------------------------------------------------
-# UI
-# --------------------------------------------------
-@app.route("/")
-def home():
-    ev = request.args.get("ev", "sEV (exosome-like)")
-    ontology = EV_ONTOLOGY.get(ev)
-
-    return render_template(
-        "index.html",
-        app_name=APP_NAME,
-        ev_options=list(EV_ONTOLOGY.keys()),
-        species_options=SPECIES_OPTIONS,
-        isolation_options=ISOLATION_OPTIONS,
-        year_options=YEAR_OPTIONS,
-        selected_ev=ev,
-        go_term=ontology["go"] if ontology else "—"
-    )
-
-
-# --------------------------------------------------
-# DataTables API (server-side, RAM-safe)
-# --------------------------------------------------
-@app.route("/api/table")
-def api_table():
-    start = int(request.args.get("start", 0))
-    length = int(request.args.get("length", 25))
-    search = request.args.get("search[value]", "").lower()
-
-    filters = {
-        "ev_syns": [
-            s.lower()
-            for s in EV_ONTOLOGY.get(
-                request.args.get("ev", ""), {}
-            ).get("synonyms", [])
-        ],
-        "species": request.args.get("species") or None,
-        "isolation": request.args.get("isolation", "").lower() or None,
-        "year": int(request.args.get("year"))
-        if request.args.get("year", "").isdigit()
-        else None
-    }
-
-    rows = []
-    matched = 0
+    query = query.lower().strip()
+    results = []
+    
+    # Only read columns necessary for filtering & display (Saves RAM)
+    read_cols = list(set([v for k, v in _col_map.items() if v in _columns]))
+    
+    # Add VESICLE_TYPE strictly if not already there (Context is needed)
+    if "VESICLE_TYPE" in _columns and "VESICLE_TYPE" not in read_cols:
+        read_cols.append("VESICLE_TYPE")
 
     for rg in range(_parquet.num_row_groups):
-        table = _parquet.read_row_group(rg, columns=SAFE_COLUMNS).to_pylist()
+        table = _parquet.read_row_group(rg, columns=read_cols).to_pylist()
+        
+        for row in table:
+            # Construct the searchable text blob
+            # We specifically look for matches in the 'name' column first for accuracy
+            name_val = str(row.get(_col_map["name"], "")).lower()
+            
+            # Match Logic:
+            # 1. Direct match in Gene/Protein Name (High priority)
+            # 2. Match in Species or any other field
+            is_match = False
+            
+            if query in name_val: 
+                is_match = True
+            elif query in str(row.get(_col_map["species"], "")).lower():
+                is_match = True
+            elif query in str(row.get("VESICLE_TYPE", "")).lower():
+                is_match = True
+            elif query in str(row.get(_col_map["type"], "")).lower(): # e.g. searching for "miRNA"
+                is_match = True
 
-        for r in table:
-            if not row_matches(r, filters, search):
-                continue
+            if is_match:
+                # Format for UI
+                results.append({
+                    "symbol": row.get(_col_map["name"], "N/A"),
+                    "type": row.get(_col_map["type"], "Unknown"), # e.g. Protein, mRNA
+                    "species": row.get(_col_map["species"], "Unknown"),
+                    "vesicle": row.get("VESICLE_TYPE", "EV"),
+                    "method": row.get(_col_map["method"], "N/A"),
+                    "year": row.get(_col_map["year"], "-")
+                })
+                
+                if len(results) >= limit:
+                    return results
 
-            matched += 1
+    return results
 
-            if matched <= start:
-                continue
-            if len(rows) >= length:
-                break
+# --- Routes ---
+@app.route("/")
+def index():
+    return render_template("index.html", app_name=APP_NAME)
 
-            rows.append([
-                r["VESICLE_TYPE"],
-                r["species"],
-                r["isolation_method"],
-                r["YEAR"]
-            ])
-
-        if len(rows) >= length:
-            break
-
+@app.route("/stats")
+def stats():
     return jsonify({
-        "draw": int(request.args.get("draw", 1)),
-        "recordsTotal": matched,
-        "recordsFiltered": matched,
-        "data": rows
+        "total_records": _total_records,
+        "mapped_columns": _col_map
     })
 
-
-# --------------------------------------------------
-# ✅ CSV export – current page only
-# --------------------------------------------------
-@app.route("/api/export")
-def export_csv():
-    filters = {
-        "ev_syns": [
-            s.lower()
-            for s in EV_ONTOLOGY.get(
-                request.args.get("ev", ""), {}
-            ).get("synonyms", [])
-        ],
-        "species": request.args.get("species") or None,
-        "isolation": request.args.get("isolation", "").lower() or None,
-        "year": int(request.args.get("year"))
-        if request.args.get("year", "").isdigit()
-        else None
-    }
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Vesicle type", "Species", "Isolation", "Year"])
-
-    count = 0
-    for rg in range(_parquet.num_row_groups):
-        table = _parquet.read_row_group(rg, columns=SAFE_COLUMNS).to_pylist()
-        for r in table:
-            if not row_matches(r, filters):
-                continue
-            writer.writerow([
-                r["VESICLE_TYPE"],
-                r["species"],
-                r["isolation_method"],
-                r["YEAR"]
-            ])
-            count += 1
-            if count >= 1000:  # hard safety cap
-                break
-        if count >= 1000:
-            break
-
-    return Response(
-        output.getvalue(),
-        mimetype="text/csv",
-        headers={
-            "Content-Disposition": "attachment; filename=ev_query_page.csv"
-        }
-    )
-
+@app.route("/search")
+def search():
+    query = request.args.get("q", "")
+    limit = int(request.args.get("limit", 100))
+    if not query: return jsonify([])
+    try:
+        return jsonify(search_engine(query, limit))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
