@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app_name }} | Proteomics & RNA Database</title>
+    <title>{{ app_name }} | Scientific Query Tool</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -11,280 +11,184 @@
             --navy: #0b2545;
             --green: #1f6f54;
             --gold: #FFD700;
-            --bg: #f4f6f8;
+            --bg: #f8f9fa;
             --white: #ffffff;
-            --text: #333;
-            --border: #e1e4e8;
+            --border: #dee2e6;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background: var(--bg);
-            color: var(--text);
+            color: #333;
             margin: 0; padding: 0;
+            display: flex; flex-direction: column; min-height: 100vh;
         }
 
-        /* --- HERO SECTION --- */
+        /* Hero */
         .hero {
             background: var(--navy);
-            color: var(--white);
-            padding: 40px 20px 60px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
+            color: white;
+            padding: 50px 20px;
+            text-align: center;
+            border-bottom: 5px solid var(--green);
         }
 
-        /* LOGO & PULSE ANIMATION */
-        .logo-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        
-        .logo {
-            width: 70px; height: 70px;
+        /* Logo Animation */
+        .logo-wrap {
+            width: 80px; height: 80px;
             background: var(--green);
             border-radius: 50%;
-            display: flex;
-            align-items: center; justify-content: center;
-            font-size: 30px; color: white;
-            position: relative;
-            z-index: 2;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            /* Pulse Animation */
-            animation: pulse 3s infinite;
+            margin: 0 auto 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 32px; color: white;
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+            animation: pulse-yellow 2s infinite;
         }
-
-        /* The Yellow Ray */
-        .logo::after {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            border: 2px solid var(--gold);
-            transform: translate(-50%, -50%);
-            opacity: 0;
-            animation: ripple 3s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+        @keyframes pulse-yellow {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
             70% { box-shadow: 0 0 0 20px rgba(255, 215, 0, 0); }
             100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
         }
-        @keyframes ripple {
-            0% { width: 100%; height: 100%; opacity: 0.8; }
-            100% { width: 180%; height: 180%; opacity: 0; }
-        }
 
-        .hero h1 { margin: 0; font-size: 2.5rem; font-weight: 700; }
-        .hero p { opacity: 0.8; margin-top: 10px; font-weight: 300; }
-
-        /* --- SEARCH BOX --- */
-        .search-container {
-            max-width: 900px;
-            width: 90%;
-            margin: -30px auto 30px;
-            background: var(--white);
+        /* Search Box */
+        .search-box {
+            max-width: 800px; margin: -30px auto 30px;
+            background: white; padding: 25px;
             border-radius: 12px;
-            padding: 25px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            position: relative;
-            z-index: 10;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 10px;
+            display: flex; gap: 10px;
         }
 
         input {
-            flex: 1;
-            padding: 15px;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 1.1rem;
-            outline: none;
+            flex: 1; padding: 15px; border: 2px solid var(--border);
+            border-radius: 8px; font-size: 1.1rem; outline: none;
         }
         input:focus { border-color: var(--green); }
 
         button {
-            padding: 15px 30px;
-            background: var(--green);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            font-weight: 600;
+            padding: 15px 30px; background: var(--navy); color: white;
+            border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
         }
-        button:hover { background: #175742; }
+        button:hover { background: #163a66; }
 
-        .examples {
-            margin-top: 15px;
-            display: flex; gap: 10px; flex-wrap: wrap;
-            font-size: 0.9rem; color: #666;
-        }
-        .tag {
-            background: #f0f0f0; padding: 4px 10px; border-radius: 15px;
-            cursor: pointer; transition: 0.2s;
-        }
-        .tag:hover { background: var(--navy); color: white; }
-
-        /* --- DATA TABLE --- */
-        .results {
-            max-width: 1200px; margin: 0 auto 50px; padding: 0 20px;
-        }
+        /* Results */
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; flex: 1; }
         
-        .meta-bar {
-            display: flex; justify-content: space-between;
-            margin-bottom: 15px; border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
-        }
-
-        table {
-            width: 100%; border-collapse: collapse;
-            background: white; border-radius: 8px; overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        th {
-            background: #f8f9fa; text-align: left; padding: 15px;
-            font-weight: 600; color: var(--navy);
-            border-bottom: 2px solid var(--green);
-        }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        th { background: #e9ecef; padding: 15px; text-align: left; color: var(--navy); font-weight: 700; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
-        tr:hover { background: #f9fbfd; }
+        tr:hover { background: #f8f9fa; }
 
-        /* Type Badges */
-        .badge {
-            padding: 4px 8px; border-radius: 4px;
-            font-size: 0.8rem; font-weight: 700;
-            text-transform: uppercase;
-        }
-        .badge.protein { background: #e3f2fd; color: #1565c0; } /* Blue */
-        .badge.mrna { background: #f3e5f5; color: #7b1fa2; }    /* Purple */
-        .badge.mirna { background: #fff3e0; color: #ef6c00; }   /* Orange */
-        .badge.lipid { background: #e8f5e9; color: #2e7d32; }   /* Green */
-        .badge.unknown { background: #eee; color: #666; }
+        /* Badges */
+        .badge { padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; }
+        .prot { background: #e3f2fd; color: #1976d2; }
+        .rna { background: #f3e5f5; color: #7b1fa2; }
+        .other { background: #eee; color: #555; }
 
-        .symbol { font-weight: bold; color: var(--text); }
-        .species { font-style: italic; color: #555; }
-
-        .loader, .empty { text-align: center; padding: 50px; color: #888; }
+        .loading, .msg { text-align: center; padding: 50px; color: #777; }
+        footer { text-align: center; padding: 20px; color: #999; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-    <header class="hero">
-        <div class="logo-container">
-            <div class="logo"><i class="fas fa-dna"></i></div>
-        </div>
-        <h1>EVisionary</h1>
-        <p>Integrated search for EV Proteomics, mRNA & miRNA (ExoCarta / Vesiclepedia)</p>
-    </header>
+<div class="hero">
+    <div class="logo-wrap"><i class="fas fa-dna"></i></div>
+    <h1>EVisionary</h1>
+    <p>Ontology-aware EV Proteomics & RNA Explorer</p>
+</div>
 
-    <div class="search-container">
-        <div class="input-group">
-            <input type="text" id="q" placeholder="Enter Gene Symbol (e.g. CD63, GAPDH), miRNA, or Species..." autofocus>
-            <button onclick="search()"><i class="fas fa-search"></i> Search</button>
-        </div>
-        <div class="examples">
-            <span>Try:</span>
-            <span class="tag" onclick="set('CD63')">CD63</span>
-            <span class="tag" onclick="set('HSP90')">HSP90</span>
-            <span class="tag" onclick="set('miRNA')">miRNA</span>
-            <span class="tag" onclick="set('Homo sapiens')">Homo sapiens</span>
-        </div>
+<div class="search-box">
+    <input type="text" id="inp" placeholder="Search protein (CD63), species, or keyword..." autofocus>
+    <button id="btn">Search</button>
+</div>
+
+<div class="container" id="out">
+    <div class="msg">
+        <i class="fas fa-search fa-3x" style="opacity:0.2; margin-bottom:15px;"></i>
+        <p>Enter a query to explore the database.</p>
     </div>
+</div>
 
-    <div class="results">
-        <div class="meta-bar">
-            <strong>Results Database</strong>
-            <span id="stats">-</span>
-        </div>
-        <div id="content">
-            <div class="empty">
-                <i class="fas fa-search fa-2x" style="margin-bottom:15px; opacity:0.3"></i>
-                <p>Enter a molecule name to begin harmonization.</p>
-            </div>
-        </div>
-    </div>
+<footer>
+    EVisionary Project &copy; 2026 | JEV Compliant
+</footer>
 
-    <script>
-        // Init
-        fetch('/stats').then(r=>r.json()).then(d=>{
-            document.getElementById('stats').innerText = `${d.total_records.toLocaleString()} Records`;
-        });
+<script>
+    const inp = document.getElementById('inp');
+    const out = document.getElementById('out');
+    const btn = document.getElementById('btn');
 
-        function set(val) {
-            document.getElementById('q').value = val;
-            search();
-        }
+    async function run() {
+        const val = inp.value.trim();
+        if(!val) return;
 
-        document.getElementById('q').addEventListener('keypress', e => {
-            if(e.key === 'Enter') search();
-        });
+        out.innerHTML = `<div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Scanning dataset...</div>`;
 
-        async function search() {
-            const query = document.getElementById('q').value.trim();
-            if(!query) return;
-
-            const div = document.getElementById('content');
-            div.innerHTML = `<div class="loader"><i class="fas fa-spinner fa-spin"></i> Searching...</div>`;
-
-            try {
-                const req = await fetch(`/search?q=${encodeURIComponent(query)}&limit=150`);
-                const data = await req.json();
-
-                if(data.error) throw new Error(data.error);
-                if(data.length === 0) {
-                    div.innerHTML = `<div class="empty">No records found for "${query}".</div>`;
-                    return;
-                }
-
-                let html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Molecule Type</th>
-                                <th>Symbol / Name</th>
-                                <th>Species</th>
-                                <th>Vesicle Type</th>
-                                <th>Method</th>
-                                <th>Year</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
-                
-                data.forEach(row => {
-                    // Determine Badge Color
-                    let typeClass = 'unknown';
-                    const t = (row.type || "").toLowerCase();
-                    if(t.includes('protein')) typeClass = 'protein';
-                    else if(t.includes('mrna')) typeClass = 'mrna';
-                    else if(t.includes('mirna')) typeClass = 'mirna';
-                    else if(t.includes('lipid')) typeClass = 'lipid';
-
-                    html += `
-                        <tr>
-                            <td><span class="badge ${typeClass}">${row.type}</span></td>
-                            <td class="symbol">${row.symbol}</td>
-                            <td class="species">${row.species}</td>
-                            <td>${row.vesicle}</td>
-                            <td>${row.method}</td>
-                            <td>${row.year}</td>
-                        </tr>`;
-                });
-                
-                html += `</tbody></table>`;
-                div.innerHTML = html;
-
-            } catch(e) {
-                div.innerHTML = `<div class="empty" style="color:red">Error: ${e.message}</div>`;
+        try {
+            const res = await fetch(`/search?q=${encodeURIComponent(val)}&limit=100`);
+            
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`Server Error (${res.status}): ${errText}`);
             }
+
+            const data = await res.json(); // This is where the error likely happened before
+
+            if (data.length === 0) {
+                out.innerHTML = `<div class="msg">No results found for "<b>${val}</b>".<br>Try a simpler term like "CD63" or "Human".</div>`;
+                return;
+            }
+
+            let h = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Name / ID</th>
+                        <th>Species</th>
+                        <th>Vesicle Type</th>
+                        <th>Method</th>
+                        <th>Year</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            data.forEach(r => {
+                let badge = 'other';
+                let t = r.type.toLowerCase();
+                if(t.includes('protein')) badge = 'prot';
+                if(t.includes('rna')) badge = 'rna';
+
+                h += `
+                <tr>
+                    <td><span class="badge ${badge}">${r.type}</span></td>
+                    <td style="font-weight:bold">${r.name}</td>
+                    <td style="font-style:italic">${r.species}</td>
+                    <td>${r.vesicle}</td>
+                    <td>${r.method}</td>
+                    <td>${r.year}</td>
+                </tr>`;
+            });
+            h += `</tbody></table>`;
+            
+            // Add stats
+            h = `<div style="margin-bottom:10px; color:green; font-weight:bold">${data.length} records found</div>` + h;
+            
+            out.innerHTML = h;
+
+        } catch (err) {
+            console.error(err);
+            out.innerHTML = `<div class="msg" style="color:red; background:#fff5f5; border:1px solid #ffcdd2; border-radius:8px;">
+                <i class="fas fa-exclamation-circle"></i><br>
+                <b>Search Failed</b><br>
+                ${err.message}
+            </div>`;
         }
-    </script>
+    }
+
+    btn.onclick = run;
+    inp.onkeypress = e => { if(e.key === 'Enter') run(); };
+</script>
+
 </body>
 </html>
