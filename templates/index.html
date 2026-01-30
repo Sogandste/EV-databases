@@ -3,191 +3,150 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app_name }} | Scientific Query Tool</title>
+    <title>{{ app_name }} | EV Database Explorer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
             --navy: #0b2545;
             --green: #1f6f54;
-            --gold: #FFD700;
             --bg: #f8f9fa;
-            --white: #ffffff;
-            --border: #dee2e6;
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             background: var(--bg);
-            color: #333;
             margin: 0; padding: 0;
             display: flex; flex-direction: column; min-height: 100vh;
         }
 
-        /* Hero */
         .hero {
             background: var(--navy);
             color: white;
-            padding: 50px 20px;
+            padding: 40px 20px;
             text-align: center;
-            border-bottom: 5px solid var(--green);
         }
 
-        /* Logo Animation */
+        /* Yellow Pulse Logo */
         .logo-wrap {
-            width: 80px; height: 80px;
+            width: 70px; height: 70px;
             background: var(--green);
             border-radius: 50%;
-            margin: 0 auto 20px;
+            margin: 0 auto 15px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 32px; color: white;
-            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
-            animation: pulse-yellow 2s infinite;
+            font-size: 28px; color: white;
+            animation: pulse 2s infinite;
         }
-        @keyframes pulse-yellow {
+        @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
-            70% { box-shadow: 0 0 0 20px rgba(255, 215, 0, 0); }
+            70% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
             100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
         }
 
-        /* Search Box */
-        .search-box {
-            max-width: 800px; margin: -30px auto 30px;
-            background: white; padding: 25px;
+        .search-container {
+            max-width: 800px; margin: -25px auto 30px;
+            background: white; padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
             display: flex; gap: 10px;
         }
 
-        input {
-            flex: 1; padding: 15px; border: 2px solid var(--border);
-            border-radius: 8px; font-size: 1.1rem; outline: none;
-        }
-        input:focus { border-color: var(--green); }
-
-        button {
-            padding: 15px 30px; background: var(--navy); color: white;
-            border: none; border-radius: 8px; font-weight: bold; cursor: pointer;
-        }
-        button:hover { background: #163a66; }
-
-        /* Results */
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; flex: 1; }
+        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
+        button { padding: 12px 25px; background: var(--navy); color: white; border: none; border-radius: 6px; cursor: pointer; }
         
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        th { background: #e9ecef; padding: 15px; text-align: left; color: var(--navy); font-weight: 700; }
-        td { padding: 15px; border-bottom: 1px solid #eee; }
-        tr:hover { background: #f8f9fa; }
+        .results { max-width: 1200px; margin: 0 auto; padding: 20px; flex: 1; }
+        
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        th { background: #eef2f5; padding: 12px; text-align: left; color: var(--navy); font-weight: 700; border-bottom: 2px solid var(--green); }
+        td { padding: 12px; border-bottom: 1px solid #eee; color: #333; }
+        tr:hover { background: #fcfcfc; }
 
         /* Badges */
-        .badge { padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; }
-        .prot { background: #e3f2fd; color: #1976d2; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .prot { background: #e3f2fd; color: #1565c0; }
         .rna { background: #f3e5f5; color: #7b1fa2; }
-        .other { background: #eee; color: #555; }
+        .other { background: #eee; color: #666; }
 
-        .loading, .msg { text-align: center; padding: 50px; color: #777; }
-        footer { text-align: center; padding: 20px; color: #999; font-size: 0.9rem; }
+        .loader { text-align: center; padding: 40px; color: #888; }
+        footer { text-align: center; padding: 20px; color: #aaa; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
 <div class="hero">
     <div class="logo-wrap"><i class="fas fa-dna"></i></div>
-    <h1>EVisionary</h1>
-    <p>Ontology-aware EV Proteomics & RNA Explorer</p>
+    <h2>EVisionary</h2>
+    <p>Reproducible EV Meta-Analysis Platform</p>
 </div>
 
-<div class="search-box">
-    <input type="text" id="inp" placeholder="Search protein (CD63), species, or keyword..." autofocus>
-    <button id="btn">Search</button>
+<div class="search-container">
+    <input type="text" id="q" placeholder="Search Gene (CD63), Protein, or Species..." autofocus>
+    <button onclick="runSearch()">Search</button>
 </div>
 
-<div class="container" id="out">
-    <div class="msg">
-        <i class="fas fa-search fa-3x" style="opacity:0.2; margin-bottom:15px;"></i>
-        <p>Enter a query to explore the database.</p>
-    </div>
+<div class="results" id="res">
+    <div class="loader">Enter a keyword to start harmonization.</div>
 </div>
 
-<footer>
-    EVisionary Project &copy; 2026 | JEV Compliant
-</footer>
+<footer>EVisionary &copy; 2026</footer>
 
 <script>
-    const inp = document.getElementById('inp');
-    const out = document.getElementById('out');
-    const btn = document.getElementById('btn');
-
-    async function run() {
-        const val = inp.value.trim();
-        if(!val) return;
-
-        out.innerHTML = `<div class="loading"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Scanning dataset...</div>`;
-
+    async function runSearch() {
+        const q = document.getElementById('q').value.trim();
+        if(!q) return;
+        
+        const div = document.getElementById('res');
+        div.innerHTML = '<div class="loader"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+        
         try {
-            const res = await fetch(`/search?q=${encodeURIComponent(val)}&limit=100`);
+            const req = await fetch(`/search?q=${encodeURIComponent(q)}&limit=100`);
+            const data = await req.json();
             
-            if (!res.ok) {
-                const errText = await res.text();
-                throw new Error(`Server Error (${res.status}): ${errText}`);
-            }
-
-            const data = await res.json(); // This is where the error likely happened before
-
-            if (data.length === 0) {
-                out.innerHTML = `<div class="msg">No results found for "<b>${val}</b>".<br>Try a simpler term like "CD63" or "Human".</div>`;
+            if(data.length === 0) {
+                div.innerHTML = '<div class="loader">No matches found.</div>';
                 return;
             }
 
-            let h = `
+            let html = `
             <table>
                 <thead>
                     <tr>
-                        <th>Type</th>
-                        <th>Name / ID</th>
-                        <th>Species</th>
-                        <th>Vesicle Type</th>
-                        <th>Method</th>
-                        <th>Year</th>
+                        <th width="15%">Molecule Type</th>
+                        <th width="20%">Gene / Protein</th>
+                        <th width="20%">Species</th>
+                        <th width="15%">Vesicle Type</th>
+                        <th width="20%">Isolation Method</th>
+                        <th width="10%">Year</th>
                     </tr>
                 </thead>
                 <tbody>`;
             
             data.forEach(r => {
-                let badge = 'other';
-                let t = r.type.toLowerCase();
-                if(t.includes('protein')) badge = 'prot';
-                if(t.includes('rna')) badge = 'rna';
-
-                h += `
+                let cls = 'other';
+                let t = (r.type || "").toLowerCase();
+                if(t.includes('protein')) cls = 'prot';
+                if(t.includes('rna')) cls = 'rna';
+                
+                html += `
                 <tr>
-                    <td><span class="badge ${badge}">${r.type}</span></td>
-                    <td style="font-weight:bold">${r.name}</td>
+                    <td><span class="badge ${cls}">${r.type}</span></td>
+                    <td style="font-weight:600">${r.name}</td>
                     <td style="font-style:italic">${r.species}</td>
                     <td>${r.vesicle}</td>
                     <td>${r.method}</td>
                     <td>${r.year}</td>
                 </tr>`;
             });
-            h += `</tbody></table>`;
             
-            // Add stats
-            h = `<div style="margin-bottom:10px; color:green; font-weight:bold">${data.length} records found</div>` + h;
+            html += '</tbody></table><div style="margin-top:10px; font-size:0.9rem; color:green">' + data.length + ' records found</div>';
+            div.innerHTML = html;
             
-            out.innerHTML = h;
-
-        } catch (err) {
-            console.error(err);
-            out.innerHTML = `<div class="msg" style="color:red; background:#fff5f5; border:1px solid #ffcdd2; border-radius:8px;">
-                <i class="fas fa-exclamation-circle"></i><br>
-                <b>Search Failed</b><br>
-                ${err.message}
-            </div>`;
+        } catch(e) {
+            div.innerHTML = '<div class="loader" style="color:red">Error: ' + e.message + '</div>';
         }
     }
-
-    btn.onclick = run;
-    inp.onkeypress = e => { if(e.key === 'Enter') run(); };
+    
+    document.getElementById('q').addEventListener('keypress', e => { if(e.key === 'Enter') runSearch(); });
 </script>
 
 </body>
