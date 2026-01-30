@@ -1,5 +1,5 @@
 import os
-import pyarrow.parquet as pq
+import duckdb
 from flask import Flask, jsonify, request, render_template
 
 app = Flask(__name__)
@@ -9,113 +9,123 @@ APP_NAME = "EVisionary"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
-_parquet = None
-_columns = []
-_total_records = 0
+# --- Initialize DuckDB Connection ---
+# We use an in-memory connection that queries the file directly on disk
+con = duckdb.connect(database=':memory:')
 
-def init_db():
-    global _parquet, _columns, _total_records
+# --- Dynamic Schema Detection ---
+def get_schema_info():
+    """
+    Analyzes the Parquet file ONCE to find:
+    1. Searchable text columns (VARCHAR)
+    2. Which column maps to 'Gene', 'Species', etc.
+    """
     try:
-        _parquet = pq.ParquetFile(DATA_PATH)
-        _columns = _parquet.schema.names
-        _total_records = _parquet.metadata.num_rows
-        print(f"✅ Loaded {_total_records} records. Columns: {_columns}")
+        # Get column details
+        schema_query = f"DESCRIBE SELECT * FROM '{DATA_PATH}' LIMIT 1"
+        schema_df = con.execute(schema_query).fetchall()
+        
+        # columns: [(name, type, ...), ...]
+        all_cols = [row[0] for row in schema_df]
+        text_cols = [row[0] for row in schema_df if 'VARCHAR' in row[1] or 'STRING' in row[1]]
+        
+        # Heuristic Mapping for UI Display
+        col_map = {
+            "name": next((c for c in all_cols if c.upper() in ["GENE_SYMBOL", "GENE", "PROTEIN", "NAME", "SYMBOL", "ID", "CONTENT_ID"]), all_cols[0]),
+            "species": next((c for c in all_cols if "SPECIES" in c.upper() or "ORGANISM" in c.upper()), "Species"),
+            "vesicle": next((c for c in all_cols if "VESICLE" in c.upper() or "TYPE" in c.upper()), "Vesicle_Type"),
+            "method": next((c for c in all_cols if "METHOD" in c.upper() or "ISOLATION" in c.upper()), "Method"),
+            "year": next((c for c in all_cols if "YEAR" in c.upper() or "DATE" in c.upper()), "Year"),
+            "type": next((c for c in all_cols if c.upper() in ["CONTENT_TYPE", "MOLECULE_TYPE", "CAT_TYPE"]), None)
+        }
+        
+        return text_cols, col_map, len(all_cols)
+        
     except Exception as e:
-        print(f"❌ Error loading Parquet: {e}")
+        print(f"❌ Schema Error: {e}")
+        return [], {}, 0
 
-init_db()
+# Init schema
+SEARCHABLE_COLS, COL_MAP, TOTAL_COLS = get_schema_info()
 
-# --- Helper: Safe Value Extractor ---
-def get_val(row, potential_keys, default="—"):
-    """Try to find a value from a list of potential column names (case-insensitive)."""
-    row_keys_lower = {k.lower(): k for k in row.keys()}
-    
-    for key in potential_keys:
-        if key.lower() in row_keys_lower:
-            val = row[row_keys_lower[key.lower()]]
-            if val: return str(val)
-    return default
-
-# --- Logic: Determine Molecule Type ---
-def guess_type(row_str, specific_col_val):
-    """Guess if it's Protein, RNA, etc. based on content."""
-    s = (row_str + " " + specific_col_val).lower()
-    if "mirna" in s: return "miRNA"
-    if "mrna" in s: return "mRNA"
-    if "protein" in s or "uniprot" in s: return "Protein"
-    if "lipid" in s: return "Lipid"
-    return "Other"
-
-# --- Search Engine (Bulletproof) ---
-def universal_search(query, limit=100):
-    if not _parquet:
-        return []
-
-    query = query.lower().strip()
-    results = []
-    
-    # Read row groups
-    for rg in range(_parquet.num_row_groups):
-        try:
-            # Read ALL columns to ensure we don't miss the keyword
-            table = _parquet.read_row_group(rg).to_pylist()
+# --- Search Engine (DuckDB SQL) ---
+def search_duckdb(query, limit=100):
+    try:
+        if not SEARCHABLE_COLS:
+            return []
             
-            for row in table:
-                # 1. Convert ENTIRE row to a single searchable string
-                # This guarantees we find the protein if it exists ANYWHERE in the row
-                row_values = [str(v) for v in row.values() if v is not None]
-                full_row_str = " ".join(row_values).lower()
-                
-                if query in full_row_str:
-                    # 2. Extract Display Data safely
-                    
-                    # Try to find the Name/Symbol
-                    name = get_val(row, ["GENE_SYMBOL", "GENE_NAME", "PROTEIN", "NAME", "SYMBOL", "CONTENT_ID", "ID"])
-                    
-                    # Try to find Species
-                    species = get_val(row, ["SPECIES", "ORGANISM", "HOST"])
-                    
-                    # Try to find Vesicle Type
-                    vesicle = get_val(row, ["VESICLE_TYPE", "EV_TYPE", "SUBTYPE"])
-                    
-                    # Try to find Method
-                    method = get_val(row, ["ISOLATION_METHOD", "METHOD", "TECHNIQUE"])
-                    
-                    # Try to find Year
-                    year = get_val(row, ["YEAR", "DATE", "PUBLICATION_YEAR"])
-                    
-                    # Guess Type
-                    mol_type = get_val(row, ["CONTENT_TYPE", "MOLECULE_TYPE", "TYPE"])
-                    if mol_type == "—":
-                        mol_type = guess_type(full_row_str, name)
+        # Clean query to prevent SQL injection issues (basic)
+        safe_query = query.replace("'", "''")
+        
+        # Construct dynamic SQL WHERE clause
+        # WHERE col1 ILIKE '%query%' OR col2 ILIKE '%query%' ...
+        where_clauses = [f"\"{col}\" ILIKE '%{safe_query}%'" for col in SEARCHABLE_COLS]
+        full_where = " OR ".join(where_clauses)
+        
+        sql = f"""
+            SELECT * 
+            FROM '{DATA_PATH}' 
+            WHERE {full_where} 
+            LIMIT {limit}
+        """
+        
+        # Execute Query
+        # fetchall() returns a list of tuples
+        # We need to map them back to column names
+        result_rows = con.execute(sql).fetchall()
+        
+        # Get result column names (in case SELECT * order changes, though unlikely)
+        desc = con.description
+        res_col_names = [d[0] for d in desc]
+        
+        output = []
+        for row in result_rows:
+            # Create a dict for this row
+            row_dict = dict(zip(res_col_names, row))
+            
+            # Map to standardized UI keys
+            # Fallback Logic: If mapped col doesn't exist, use empty string
+            mol_type = "Unknown"
+            if COL_MAP['type'] and COL_MAP['type'] in row_dict:
+                mol_type = row_dict[COL_MAP['type']]
+            else:
+                # Basic guessing if column missing
+                full_str = str(row_dict).lower()
+                if "mirna" in full_str: mol_type = "miRNA"
+                elif "protein" in full_str: mol_type = "Protein"
+                elif "mrna" in full_str: mol_type = "mRNA"
 
-                    results.append({
-                        "name": name,
-                        "type": mol_type,
-                        "species": species,
-                        "vesicle": vesicle,
-                        "method": method,
-                        "year": year
-                    })
-                    
-                    if len(results) >= limit:
-                        return results
-        except Exception as e:
-            print(f"⚠️ Error reading row group {rg}: {e}")
-            continue
+            output.append({
+                "name": str(row_dict.get(COL_MAP['name'], "—")),
+                "type": str(mol_type),
+                "species": str(row_dict.get(COL_MAP['species'], "—")),
+                "vesicle": str(row_dict.get(COL_MAP['vesicle'], "—")),
+                "method": str(row_dict.get(COL_MAP['method'], "—")),
+                "year": str(row_dict.get(COL_MAP['year'], "—"))
+            })
+            
+        return output
 
-    return results
+    except Exception as e:
+        print(f"⚠️ SQL Error: {e}")
+        raise e
 
 # --- Routes ---
+
 @app.route("/")
 def index():
     return render_template("index.html", app_name=APP_NAME)
 
 @app.route("/stats")
 def stats():
+    # Fast count using metadata
+    try:
+        count = con.execute(f"SELECT COUNT(*) FROM '{DATA_PATH}'").fetchone()[0]
+    except:
+        count = "700k+"
     return jsonify({
-        "total_records": _total_records,
-        "columns": _columns
+        "total_records": count,
+        "searchable_columns": len(SEARCHABLE_COLS)
     })
 
 @app.route("/search")
@@ -126,11 +136,10 @@ def search():
     if not query: return jsonify([])
 
     try:
-        data = universal_search(query, limit)
+        data = search_duckdb(query, limit)
         return jsonify(data)
     except Exception as e:
-        print(f"Search Error: {e}")
-        return jsonify({"error": "Server Error", "details": str(e)}), 500
+        return jsonify({"error": "Database Error", "details": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
