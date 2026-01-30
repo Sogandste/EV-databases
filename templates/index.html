@@ -5,34 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ app_name }} | Ontology-aware Harmonization</title>
     
-    <!-- Font: Inter -->
+    <!-- Font & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         :root {
-            --navy: #0b2545;
-            --green: #1f6f54;
-            --gold: #FFD700;
-            --bg: #f8fafc;
-            --text: #1e293b;
-            --border: #e2e8f0;
+            --navy: #0b2545; --green: #1f6f54; --gold: #FFD700;
+            --bg: #f8fafc; --text: #1e293b; --border: #e2e8f0;
         }
-
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0; display: flex; flex-direction: column; min-height: 100vh;
+            font-family: 'Inter', sans-serif; background-color: var(--bg);
+            color: var(--text); margin: 0; display: flex; flex-direction: column; min-height: 100vh;
         }
 
-        /* --- HERO --- */
+        /* Hero */
         .hero {
             background: linear-gradient(135deg, var(--navy) 0%, #163a66 100%);
-            color: white; padding: 50px 20px 70px; text-align: center;
+            color: white; padding: 40px 20px 60px; text-align: center;
             border-bottom: 5px solid var(--green);
         }
         .logo-ring {
@@ -42,16 +33,16 @@
         }
         @keyframes pulse { 0% {box-shadow: 0 0 0 0 rgba(255,215,0,0.4);} 70% {box-shadow: 0 0 0 15px rgba(0,0,0,0);} 100% {box-shadow: 0 0 0 0 rgba(0,0,0,0);} }
 
-        h1 { font-weight: 800; font-size: 2rem; margin: 0; }
-        .subtitle { font-weight: 300; opacity: 0.9; margin-top: 5px; font-size: 1rem; }
+        h1 { font-weight: 800; font-size: 1.8rem; margin: 0; }
+        .subtitle { font-weight: 300; opacity: 0.9; margin-top: 5px; font-size: 0.95rem; }
 
-        /* --- CONTAINER --- */
+        /* Main */
         .main-content {
-            max-width: 1200px; margin: -40px auto 40px; padding: 0 20px;
+            max-width: 1200px; margin: -30px auto 40px; padding: 0 20px;
             width: 100%; box-sizing: border-box; flex: 1;
         }
 
-        /* --- SEARCH --- */
+        /* Search */
         .search-wrapper {
             background: rgba(255,255,255,0.95); backdrop-filter: blur(10px);
             padding: 10px; border-radius: 12px; box-shadow: 0 15px 40px rgba(0,0,0,0.1);
@@ -59,8 +50,8 @@
         }
         input { flex: 1; border: none; background: transparent; padding: 12px; font-size: 1rem; outline: none; }
         .btn-go { background: var(--navy); color: white; border: none; padding: 0 25px; border-radius: 8px; font-weight: 600; cursor: pointer; }
-        
-        /* --- CHARTS --- */
+
+        /* Charts */
         .charts-row { display: none; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 25px; }
         .chart-box {
             background: white; padding: 15px; border-radius: 12px;
@@ -68,11 +59,11 @@
             position: relative;
         }
         .chart-hint {
-            font-size: 0.75rem; color: #64748b; position: absolute; top: 15px; right: 15px;
+            font-size: 0.7rem; color: #64748b; position: absolute; top: 15px; right: 15px;
             background: #f1f5f9; padding: 2px 8px; border-radius: 10px;
         }
 
-        /* --- TABLE --- */
+        /* Table */
         .table-area { margin-top: 25px; display: none; }
         .table-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .btn-reset { display: none; background: #fee2e2; color: #991b1b; border: none; padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
@@ -86,26 +77,22 @@
         th {
             padding: 15px; background: #f8fafc; color: var(--navy); font-size: 0.75rem;
             font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #e2e8f0;
-            cursor: pointer; /* Clickable */
-            user-select: none; transition: background 0.2s;
-            text-align: center; /* Default center */
+            cursor: pointer; user-select: none; text-align: center;
         }
         th:hover { background: #e2e8f0; }
         th i { margin-left: 5px; opacity: 0.3; }
         
-        /* Specific Alignments */
         th:nth-child(2), td:nth-child(2) { text-align: left; padding-left: 20px; width: 20%; }
         th:nth-child(5), td:nth-child(5) { text-align: left; width: 30%; }
         
         td {
             padding: 12px 15px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
         }
         tr { cursor: pointer; transition: background 0.1s; }
         tr:hover { background-color: #f1f5f9; }
 
-        /* --- MODAL (POPUP) --- */
+        /* Modal */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); z-index: 1000; backdrop-filter: blur(3px);
@@ -113,17 +100,12 @@
         }
         .modal-card {
             background: white; width: 90%; max-width: 500px; border-radius: 16px;
-            padding: 25px; box-shadow: 0 25px 50px rgba(0,0,0,0.25);
-            animation: slideUp 0.3s ease-out; position: relative;
+            padding: 25px; box-shadow: 0 25px 50px rgba(0,0,0,0.25); position: relative;
         }
-        @keyframes slideUp { from {transform: translateY(20px); opacity:0;} to {transform: translateY(0); opacity:1;} }
-        
         .modal-row { margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
-        .modal-label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 4px; }
-        .modal-val { font-size: 1rem; color: var(--navy); word-wrap: break-word; line-height: 1.5; }
-        .close-modal {
-            position: absolute; top: 15px; right: 20px; font-size: 1.5rem; color: #94a3b8; cursor: pointer;
-        }
+        .modal-label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-weight: 700; display: block; }
+        .modal-val { font-size: 1rem; color: var(--navy); word-wrap: break-word; }
+        .close-modal { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color:#999}
 
         /* Badges */
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
@@ -147,7 +129,6 @@
     </header>
 
     <div class="main-content">
-        
         <div class="search-wrapper">
             <input type="text" id="q" placeholder="Gene (CD63), Accession, or Species..." autofocus>
             <button class="btn-go" onclick="runSearch()">EXPLORE</button>
@@ -155,11 +136,11 @@
 
         <div id="dashboard" class="charts-row">
             <div class="chart-box">
-                <span class="chart-hint"><i class="fas fa-hand-pointer"></i> Click slices to filter</span>
+                <span class="chart-hint"><i class="fas fa-hand-pointer"></i> Filter by Species</span>
                 <div style="height:280px"><canvas id="cSpecies"></canvas></div>
             </div>
             <div class="chart-box">
-                <span class="chart-hint"><i class="fas fa-hand-pointer"></i> Click bars to filter</span>
+                <span class="chart-hint"><i class="fas fa-hand-pointer"></i> Filter by Method</span>
                 <div style="height:280px"><canvas id="cMethod"></canvas></div>
             </div>
         </div>
@@ -172,11 +153,8 @@
                         <i class="fas fa-times"></i> Clear Filter
                     </button>
                 </div>
-                <button onclick="doExport()" style="background:none; border:1px solid var(--navy); padding:5px 15px; border-radius:20px; font-size:0.8rem; cursor:pointer">
-                    CSV
-                </button>
+                <button onclick="doExport()" style="background:none; border:1px solid var(--navy); padding:5px 15px; border-radius:20px; font-size:0.8rem; cursor:pointer">CSV</button>
             </div>
-            
             <div class="table-scroll">
                 <table id="mainTable">
                     <thead>
@@ -198,11 +176,11 @@
         </div>
     </div>
 
-    <!-- MODAL (Hidden by default) -->
+    <!-- Modal -->
     <div id="modal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-card">
             <div class="close-modal" onclick="document.getElementById('modal').style.display='none'">&times;</div>
-            <h3 style="margin-top:0; color:var(--navy); border-bottom:2px solid var(--gold); display:inline-block; padding-bottom:5px">Record Details</h3>
+            <h3 style="margin-top:0; color:var(--navy); border-bottom:2px solid var(--gold); display:inline-block; padding-bottom:5px">Details</h3>
             <div id="modalContent" style="margin-top:20px"></div>
         </div>
     </div>
@@ -210,45 +188,64 @@
     <script>
         const input = document.getElementById('q');
         let chartS = null, chartM = null;
-        let originalData = []; // Full dataset
-        let currentData = [];  // Filtered dataset
-        let sortDir = 1; // 1: asc, -1: desc
+        let originalData = [], currentData = [];
+        let sortDir = 1;
+
+        // --- NEW: ONTOLOGY MAPPING LOGIC ---
+        function standardizeMethod(raw) {
+            if(!raw) return "Unknown";
+            const s = raw.toLowerCase().trim();
+            
+            // Harmonize Ultracentrifugation
+            if(s.includes('ultracentrifugation') || s.includes('differential cent') || s === 'uc' || s.includes('ultra-centrifugation')) 
+                return "Ultracentrifugation";
+            
+            // Harmonize Density Gradient
+            if(s.includes('density') || s.includes('gradient') || s.includes('sucrose') || s.includes('iodixanol') || s.includes('cushion')) 
+                return "Density Gradient";
+            
+            // Harmonize Chromatography
+            if(s.includes('chromatography') || s.includes('size exclusion') || s.includes('sec') || s.includes('sepharose')) 
+                return "Size Exclusion Chr.";
+                
+            // Harmonize Precipitation
+            if(s.includes('precipitation') || s.includes('polymer') || s.includes('kit') || s.includes('peg')) 
+                return "Precipitation";
+            
+            // Harmonize Filtration
+            if(s.includes('filtration') || s.includes('ultrafiltration')) 
+                return "Ultrafiltration";
+
+            return raw; // Return original if no match found
+        }
 
         async function runSearch() {
             const query = input.value.trim();
             if(!query) return;
-
-            // Reset
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('results').style.display = 'none';
-            
             try {
-                const res = await fetch(`/search?q=${encodeURIComponent(query)}&limit=250`);
+                const res = await fetch(`/search?q=${encodeURIComponent(query)}&limit=300`);
                 originalData = await res.json();
-                currentData = [...originalData]; // Copy
-
+                currentData = [...originalData];
                 if(originalData.length === 0) { alert("No results."); return; }
-
                 renderCharts(originalData);
                 renderTable(originalData);
-            } catch(e) { alert("Error loading data"); }
+            } catch(e) { alert("Error"); }
         }
 
-        // --- 1. RENDER TABLE ---
         function renderTable(data) {
             document.getElementById('results').style.display = 'block';
             document.getElementById('resTitle').innerText = `${data.length} Records`;
             const tbody = document.querySelector('#mainTable tbody');
             tbody.innerHTML = '';
-
-            data.forEach((r, index) => {
+            data.forEach(r => {
                 let badge = 'other';
                 if(r.type==='Protein') badge='protein';
                 if(r.type==='mRNA') badge='mrna';
                 if(r.type==='miRNA') badge='mirna';
-
                 const tr = document.createElement('tr');
-                tr.onclick = () => showModal(r); // Feature 3: Modal
+                tr.onclick = () => showModal(r);
                 tr.innerHTML = `
                     <td><span class="badge ${badge}">${r.type}</span></td>
                     <td style="font-weight:600; color:var(--navy)">${r.name}</td>
@@ -261,26 +258,26 @@
             });
         }
 
-        // --- 2. RENDER CHARTS (INTERACTIVE) ---
         function renderCharts(data) {
             document.getElementById('dashboard').style.display = 'grid';
             
-            // Aggregate
-            const sMap = {}, mMap = {};
+            const sMap = {};
+            const mMap = {};
+
             data.forEach(d => {
+                // Count Species
                 sMap[d.species] = (sMap[d.species]||0)+1;
-                mMap[d.method] = (mMap[d.method]||0)+1;
+                
+                // Count Methods (Using HARMONIZED name)
+                const stdMethod = standardizeMethod(d.method);
+                mMap[stdMethod] = (mMap[stdMethod]||0)+1;
             });
 
-            // Config for interactivity
-            const commonOptions = {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, elements, chart) => {
-                    if (elements.length > 0) {
-                        const i = elements[0].index;
-                        const label = chart.data.labels[i];
-                        filterData(label); // Feature 2: Filter
-                    }
+            // Config
+            const onClickFilter = (e, elements, chart) => {
+                if (elements.length > 0) {
+                    const label = chart.data.labels[elements[0].index];
+                    filterData(label);
                 }
             };
 
@@ -293,11 +290,10 @@
                     labels: topS.map(x=>x[0]),
                     datasets: [{
                         data: topS.map(x=>x[1]),
-                        backgroundColor: ['#0b2545','#1f6f54','#FFD700','#64748b','#cbd5e1'],
-                        borderWidth: 0
+                        backgroundColor: ['#0b2545','#1f6f54','#FFD700','#64748b','#cbd5e1'], borderWidth: 0
                     }]
                 },
-                options: { ...commonOptions, plugins:{legend:{position:'right'}} }
+                options: { responsive: true, maintainAspectRatio: false, onClick: onClickFilter, plugins:{legend:{position:'right'}} }
             });
 
             // Chart Methods
@@ -306,40 +302,26 @@
             chartM = new Chart(document.getElementById('cMethod'), {
                 type: 'bar',
                 data: {
-                    labels: topM.map(x=>x[0].substring(0,20)+".."),
+                    labels: topM.map(x=>x[0].substring(0,25)),
                     datasets: [{
                         label: 'Count', data: topM.map(x=>x[1]),
                         backgroundColor: '#1f6f54', borderRadius: 4, barThickness: 20
                     }]
                 },
-                options: { ...commonOptions, indexAxis: 'y', plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}} }
+                options: { 
+                    indexAxis: 'y', 
+                    responsive: true, maintainAspectRatio: false, 
+                    onClick: onClickFilter,
+                    plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}} 
+                }
             });
         }
 
-        // --- FEATURE 1: SORTING ---
-        function sortTable(key) {
-            sortDir *= -1; // Toggle desc/asc
-            currentData.sort((a, b) => {
-                let valA = a[key] || "";
-                let valB = b[key] || "";
-                // Check if number
-                if(!isNaN(valA) && !isNaN(valB)) { valA = Number(valA); valB = Number(valB); }
-                else { valA = valA.toString().toLowerCase(); valB = valB.toString().toLowerCase(); }
-                
-                if (valA < valB) return -1 * sortDir;
-                if (valA > valB) return 1 * sortDir;
-                return 0;
-            });
-            renderTable(currentData);
-        }
-
-        // --- FEATURE 2: FILTERING ---
         function filterData(criteria) {
-            // Check if criteria matches species or method
-            currentData = originalData.filter(d => 
-                (d.species && d.species.includes(criteria)) || 
-                (d.method && d.method.includes(criteria.replace("..", "")))
-            );
+            currentData = originalData.filter(d => {
+                const stdMethod = standardizeMethod(d.method);
+                return (d.species === criteria) || (stdMethod === criteria);
+            });
             renderTable(currentData);
             document.getElementById('btnReset').style.display = 'inline-block';
         }
@@ -350,24 +332,32 @@
             document.getElementById('btnReset').style.display = 'none';
         }
 
-        // --- FEATURE 3: MODAL ---
+        function sortTable(key) {
+            sortDir *= -1;
+            currentData.sort((a, b) => {
+                let valA = a[key] ? a[key].toString().toLowerCase() : "";
+                let valB = b[key] ? b[key].toString().toLowerCase() : "";
+                if(!isNaN(a[key]) && !isNaN(b[key])) { valA=Number(a[key]); valB=Number(b[key]); }
+                if (valA < valB) return -1 * sortDir;
+                if (valA > valB) return 1 * sortDir;
+                return 0;
+            });
+            renderTable(currentData);
+        }
+
         function showModal(row) {
-            const m = document.getElementById('modalContent');
-            m.innerHTML = `
+            document.getElementById('modalContent').innerHTML = `
                 <div class="modal-row"><span class="modal-label">Molecule Type</span><span class="modal-val">${row.type}</span></div>
                 <div class="modal-row"><span class="modal-label">Gene / Name</span><span class="modal-val">${row.name}</span></div>
                 <div class="modal-row"><span class="modal-label">Species</span><span class="modal-val">${row.species}</span></div>
                 <div class="modal-row"><span class="modal-label">Vesicle Type</span><span class="modal-val">${row.vesicle}</span></div>
                 <div class="modal-row"><span class="modal-label">Isolation Method</span><span class="modal-val">${row.method}</span></div>
-                <div class="modal-row" style="border:none"><span class="modal-label">Publication Year</span><span class="modal-val">${row.year}</span></div>
+                <div class="modal-row" style="border:none"><span class="modal-label">Year</span><span class="modal-val">${row.year}</span></div>
             `;
             document.getElementById('modal').style.display = 'flex';
         }
-
-        function closeModal(e) {
-            if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
-        }
-
+        function closeModal(e) { if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none'; }
+        
         function doExport() {
             let csv = "Type,Name,Species,Vesicle,Method,Year\n";
             currentData.forEach(r => { csv += `"${r.type}","${r.name}","${r.species}","${r.vesicle}","${r.method}","${r.year}"\n`; });
