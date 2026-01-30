@@ -1,182 +1,377 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>{{ app_name }}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} | Dashboard</title>
 
-<link rel="stylesheet"
- href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables Bootstrap 5 CSS -->
+    <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-<style>
-:root{
-  --navy:#0b2545;
-  --green:#1f6f54;
-  --bg:#f2f4f6;
-  --gray:#8a8f98;
-  --white:#ffffff;
-}
+    <style>
+        :root {
+            --sidebar-bg: #0b2545; /* Navy Blue requested */
+            --sidebar-hover: #163a66;
+            --accent-green: #1f6f54; /* Forest Green requested */
+            --bg-light: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
 
-body{
-  margin:0;
-  padding:28px;
-  font-family:system-ui,-apple-system,sans-serif;
-  background:var(--bg);
-  color:var(--navy);
-}
+        body {
+            background-color: var(--bg-light);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            height: 100vh;
+            overflow: hidden; /* App-like feel */
+        }
 
-header{
-  max-width:1200px;
-  margin:auto;
-  display:flex;
-  align-items:center;
-  gap:14px;
-}
+        /* ----- Sidebar Layout ----- */
+        .wrapper {
+            display: flex;
+            height: 100%;
+        }
 
-.logo{
-  width:42px;height:42px;
-  border-radius:50%;
-  background:var(--green);
-  color:white;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:700;
-}
+        .sidebar {
+            width: 300px;
+            background-color: var(--sidebar-bg);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+        }
 
-h1{margin:0;font-size:26px}
+        .main-content {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
 
-.context{
-  margin:8px auto 18px auto;
-  max-width:1200px;
-  color:var(--gray);
-}
+        /* ----- Sidebar Components ----- */
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
 
-.filters{
-  max-width:1200px;
-  margin:auto;
-  background:var(--white);
-  padding:14px;
-  border-radius:12px;
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:12px;
-}
+        .brand-logo {
+            width: 48px;
+            height: 48px;
+            background-color: var(--accent-green);
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(31, 111, 84, 0.4);
+        }
 
-select{
-  padding:8px;
-  border-radius:8px;
-  border:1px solid #dcdfe3;
-}
+        .brand-text h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.5px;
+        }
 
-.actions{
-  max-width:1200px;
-  margin:12px auto;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-size:14px;
-  color:var(--gray);
-}
+        .brand-text p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
 
-button{
-  background:var(--green);
-  color:white;
-  border:none;
-  padding:8px 14px;
-  border-radius:8px;
-  cursor:pointer;
-}
+        .filter-section label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
 
-.empty{
-  text-align:center;
-  padding:40px;
-  color:var(--gray);
-}
-</style>
+        .form-select {
+            background-color: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .form-select:focus {
+            background-color: rgba(255,255,255,0.1);
+            border-color: var(--accent-green);
+            color: white;
+            box-shadow: none;
+        }
+
+        .form-select option {
+            background-color: var(--sidebar-bg);
+            color: white;
+        }
+
+        .btn-export {
+            background-color: var(--accent-green);
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            margin-top: auto; /* Push to bottom */
+        }
+
+        .btn-export:hover {
+            background-color: #175742;
+            transform: translateY(-2px);
+        }
+
+        /* ----- Main Content Components ----- */
+        .info-bar {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 5px solid var(--accent-green);
+        }
+
+        .data-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            padding: 25px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ----- DataTable Customization ----- */
+        table.dataTable thead th {
+            background-color: #f8f9fa;
+            color: var(--sidebar-bg);
+            font-weight: 700;
+            border-bottom: 2px solid #e9ecef !important;
+            padding: 15px !important;
+        }
+
+        table.dataTable tbody td {
+            padding: 14px 15px !important;
+            vertical-align: middle;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        table.dataTable tbody tr:hover {
+            background-color: #f8fafa !important;
+        }
+
+        .dataTables_info {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 15px;
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--sidebar-bg);
+            border-color: var(--sidebar-bg);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #6b7280;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            color: #d1d5db;
+            margin-bottom: 15px;
+        }
+    </style>
 </head>
-
 <body>
 
-<header>
-  <div class="logo">EV</div>
-  <h1>{{ app_name }}</h1>
-</header>
+<div class="wrapper">
+    <!-- SIDEBAR: Controls -->
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-logo">EV</div>
+            <div class="brand-text">
+                <h1>{{ app_name }}</h1>
+                <p>JEV Database Explorer</p>
+            </div>
+        </div>
 
-<div class="context">
-  EV category: <strong>{{ selected_ev }}</strong> · GO term: {{ go_term }}
+        <div class="filter-section">
+            <label><i class="bi bi-funnel-fill me-2"></i>Filters</label>
+            
+            <p class="small text-white-50 mb-2">EV Category</p>
+            <select id="ev" class="form-select">
+                {% for ev in ev_options %}
+                    <option value="{{ ev }}" {% if ev == selected_ev %}selected{% endif %}>{{ ev }}</option>
+                {% endfor %}
+            </select>
+
+            <p class="small text-white-50 mb-2 mt-3">Source Species</p>
+            <select id="species" class="form-select">
+                <option value="">All Species</option>
+                {% for s in species_options %}
+                    <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+            </select>
+
+            <p class="small text-white-50 mb-2 mt-3">Isolation Method</p>
+            <select id="isolation" class="form-select">
+                <option value="">All Methods</option>
+                {% for i in isolation_options %}
+                    <option value="{{ i }}">{{ i }}</option>
+                {% endfor %}
+            </select>
+
+            <p class="small text-white-50 mb-2 mt-3">Year</p>
+            <select id="year" class="form-select">
+                <option value="">All Years</option>
+                {% for y in year_options %}
+                    <option value="{{ y }}">{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button id="exportBtn" class="btn-export">
+            <i class="bi bi-cloud-download"></i> Export Page CSV
+        </button>
+    </aside>
+
+    <!-- MAIN CONTENT: Data -->
+    <main class="main-content">
+        
+        <!-- Context Bar -->
+        <div class="info-bar">
+            <div>
+                <span class="text-muted small text-uppercase fw-bold">Current Ontology Context</span>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <strong style="color: var(--sidebar-bg); font-size: 1.1rem;">{{ selected_ev }}</strong>
+                    <span class="badge bg-secondary rounded-pill" style="font-weight: 500;">{{ go_term }}</span>
+                </div>
+            </div>
+            <div class="text-end">
+                <div id="resultCount" class="h4 mb-0 fw-bold text-success">...</div>
+                <small class="text-muted">records found</small>
+            </div>
+        </div>
+
+        <!-- Table Card -->
+        <div class="data-card">
+            <table id="evTable" class="table table-hover w-100">
+                <thead>
+                    <tr>
+                        <th>Vesicle Type</th>
+                        <th>Species</th>
+                        <th>Isolation Method</th>
+                        <th>Year</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data loaded via Ajax -->
+                </tbody>
+            </table>
+
+            <div id="emptyState" class="empty-state" style="display:none;">
+                <i class="bi bi-search"></i>
+                <h4>No matching records found</h4>
+                <p>Try adjusting your filters in the sidebar.</p>
+            </div>
+        </div>
+
+    </main>
 </div>
 
-<div class="filters">
-  <select id="ev">
-    {% for ev in ev_options %}
-      <option value="{{ ev }}" {% if ev==selected_ev %}selected{% endif %}>{{ ev }}</option>
-    {% endfor %}
-  </select>
-  <select id="species"><option value="">All species</option>
-    {% for s in species_options %}<option>{{ s }}</option>{% endfor %}
-  </select>
-  <select id="isolation"><option value="">All isolation</option>
-    {% for i in isolation_options %}<option>{{ i }}</option>{% endfor %}
-  </select>
-  <select id="year"><option value="">All years</option>
-    {% for y in year_options %}<option>{{ y }}</option>{% endfor %}
-  </select>
-</div>
-
-<div class="actions">
-  <span id="resultInfo"></span>
-  <button id="exportBtn">Export CSV (current query)</button>
-</div>
-
-<table id="evTable" class="display" style="width:100%;max-width:1200px;margin:auto">
-  <thead>
-    <tr>
-      <th>Vesicle type</th>
-      <th>Species</th>
-      <th>Isolation</th>
-      <th>Year</th>
-    </tr>
-  </thead>
-</table>
-
-<div id="empty" class="empty" style="display:none">
-  No records match your current filters.
-</div>
-
+<!-- JavaScripts -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
-const table = $('#evTable').DataTable({
-  serverSide:true,
-  processing:true,
-  ajax:{
-    url:"/api/table",
-    data:function(d){
-      d.ev=$('#ev').val();
-      d.species=$('#species').val();
-      d.isolation=$('#isolation').val();
-      d.year=$('#year').val();
-    }
-  },
-  drawCallback:function(settings){
-    const info=settings.json.recordsFiltered;
-    $('#resultInfo').text(info+" records found");
-    $('#empty').toggle(info===0);
-  }
-});
+    $(document).ready(function() {
+        
+        // Initialize DataTables
+        const table = $('#evTable').DataTable({
+            serverSide: true,
+            processing: true,
+            dom: '<"d-flex justify-content-between align-items-center mb-3"f>rt<"d-flex justify-content-between align-items-center mt-3"ip>',
+            language: {
+                search: "_INPUT_",
+                searchPlaceholder: "Search within results...",
+                processing: '<div class="spinner-border text-success" role="status"><span class="visually-hidden">Loading...</span></div>'
+            },
+            ajax: {
+                url: "/api/table",
+                data: function(d) {
+                    d.ev = $('#ev').val();
+                    d.species = $('#species').val();
+                    d.isolation = $('#isolation').val();
+                    d.year = $('#year').val();
+                }
+            },
+            drawCallback: function(settings) {
+                const info = settings.json.recordsFiltered;
+                $('#resultCount').text(info.toLocaleString());
+                
+                // Toggle empty state
+                if (info === 0) {
+                    $('#evTable_wrapper').hide();
+                    $('#emptyState').show();
+                } else {
+                    $('#evTable_wrapper').show();
+                    $('#emptyState').hide();
+                }
+            },
+            columns: [
+                { data: 0, className: "fw-bold text-primary-dark" }, // Vesicle Type
+                { data: 1, render: function(data) { return '<i>' + data + '</i>'; } }, // Species (Italic)
+                { data: 2 }, // Isolation
+                { data: 3, className: "text-center" }  // Year
+            ]
+        });
 
-$('select').on('change',()=>table.ajax.reload());
+        // Live Filter Reload
+        $('select').on('change', function() {
+            table.ajax.reload();
+            // Update context header specifically for EV change implies refresh
+            if(this.id === 'ev') {
+                 window.location.href = "/?ev=" + $(this).val(); 
+            }
+        });
 
-$('#exportBtn').on('click',()=>{
-  const params=$.param({
-    ev:$('#ev').val(),
-    species:$('#species').val(),
-    isolation:$('#isolation').val(),
-    year:$('#year').val()
-  });
-  window.location="/api/export?"+params;
-});
+        // Export Button
+        $('#exportBtn').on('click', function() {
+            const params = $.param({
+                ev: $('#ev').val(),
+                species: $('#species').val(),
+                isolation: $('#isolation').val(),
+                year: $('#year').val()
+            });
+            window.location = "/api/export?" + params;
+        });
+    });
 </script>
 
 </body>
