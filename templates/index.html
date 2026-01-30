@@ -144,4 +144,238 @@
         .modal-row { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 12px; }
         .modal-label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-weight: 700; display: block; margin-bottom: 5px;}
         .modal-val { font-size: 1.05rem; color: var(--navy); font-weight: 500; line-height: 1.5; }
-        .close-modal { position: absolute; top: 20px; right: 25px; font-
+        .close-modal { position: absolute; top: 20px; right: 25px; font-size: 1.5rem; cursor: pointer; color:#94a3b8; transition:0.2s}
+        .close-modal:hover { color: var(--navy); }
+
+        /* Badges */
+        .badge { padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .protein { background: #e0f2fe; color: #0284c7; }
+        .mrna { background: #f3e8ff; color: #9333ea; }
+        .mirna { background: #ffedd5; color: #c2410c; }
+
+        @media (max-width: 800px) {
+            .charts-row { grid-template-columns: 1fr; }
+            .search-wrapper { flex-direction: column; }
+            .btn-go { width: 100%; padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="hero">
+        <div class="logo-ring"><i class="fas fa-dna"></i></div>
+        <h1>EVisionary</h1>
+        <p class="subtitle">Ontology-aware harmonization of EV proteomics & RNA metadata.</p>
+    </header>
+
+    <div class="main-content">
+        <div class="search-wrapper">
+            <input type="text" id="q" placeholder="Gene (CD63), Accession, or Species..." autofocus>
+            <button class="btn-go" onclick="runSearch()">EXPLORE</button>
+        </div>
+
+        <div id="dashboard" class="charts-row">
+            <div class="chart-box">
+                <span class="chart-hint"><i class="fas fa-filter"></i> Click to Filter</span>
+                <div style="height:280px"><canvas id="cSpecies"></canvas></div>
+            </div>
+            <div class="chart-box">
+                <span class="chart-hint"><i class="fas fa-filter"></i> Click to Filter</span>
+                <div style="height:280px"><canvas id="cMethod"></canvas></div>
+            </div>
+        </div>
+
+        <div id="results" class="table-area">
+            <div class="table-controls">
+                <div style="display:flex; align-items:center;">
+                    <strong style="color:var(--navy); font-size:1.2rem;" id="resTitle">Results</strong>
+                    <button id="btnReset" class="btn-reset" onclick="resetFilter()">
+                        <i class="fas fa-times"></i> Clear Filter
+                    </button>
+                </div>
+                <!-- GOLD BUTTON -->
+                <button class="btn-export" onclick="doExport()">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+            </div>
+            
+            <div class="table-scroll">
+                <table id="mainTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('type')">Type <i class="fas fa-sort"></i></th>
+                            <th onclick="sortTable('name')">Gene / Name <i class="fas fa-sort"></i></th>
+                            <th onclick="sortTable('species')">Species <i class="fas fa-sort"></i></th>
+                            <th onclick="sortTable('vesicle')">Vesicle <i class="fas fa-sort"></i></th>
+                            <th onclick="sortTable('method')">Method <i class="fas fa-sort"></i></th>
+                            <th onclick="sortTable('year')">Year <i class="fas fa-sort"></i></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div style="text-align:center; margin-top:10px; font-size:0.85rem; color:#64748b">
+                <i class="fas fa-mouse-pointer"></i> Click rows to view full details
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-card">
+            <div class="close-modal" onclick="document.getElementById('modal').style.display='none'">&times;</div>
+            <h3 style="margin-top:0; color:var(--navy); border-bottom:3px solid var(--gold); display:inline-block; padding-bottom:8px">Record Details</h3>
+            <div id="modalContent" style="margin-top:20px"></div>
+        </div>
+    </div>
+
+    <script>
+        const input = document.getElementById('q');
+        let chartS = null, chartM = null;
+        let originalData = [], currentData = [];
+        let sortDir = 1;
+
+        // --- SMART HARMONIZATION ---
+        function standardizeMethod(raw) {
+            if(!raw) return "Unknown";
+            const s = raw.toLowerCase().trim();
+            if(s.includes('ultracentrifugation') || s.includes('differential cent') || s === 'uc' || s.includes('ultra-centrifugation')) return "Ultracentrifugation";
+            if(s.includes('density') || s.includes('gradient') || s.includes('sucrose') || s.includes('iodixanol')) return "Density Gradient";
+            if(s.includes('chromatography') || s.includes('size exclusion') || s.includes('sec')) return "Size Exclusion Chr.";
+            if(s.includes('precipitation') || s.includes('kit') || s.includes('peg')) return "Precipitation";
+            if(s.includes('filtration') || s.includes('ultrafil')) return "Ultrafiltration";
+            return raw;
+        }
+
+        async function runSearch() {
+            const query = input.value.trim();
+            if(!query) return;
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('results').style.display = 'none';
+            try {
+                const res = await fetch(`/search?q=${encodeURIComponent(query)}&limit=300`);
+                originalData = await res.json();
+                currentData = [...originalData];
+                if(originalData.length === 0) { alert("No results."); return; }
+                renderCharts(originalData);
+                renderTable(originalData);
+            } catch(e) { alert("Error"); }
+        }
+
+        function renderTable(data) {
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('resTitle').innerText = `${data.length} Records`;
+            const tbody = document.querySelector('#mainTable tbody');
+            tbody.innerHTML = '';
+            data.forEach(r => {
+                let badge = 'other';
+                if(r.type==='Protein') badge='protein';
+                if(r.type==='mRNA') badge='mrna';
+                if(r.type==='miRNA') badge='mirna';
+                const tr = document.createElement('tr');
+                tr.onclick = () => showModal(r);
+                tr.innerHTML = `
+                    <td><span class="badge ${badge}">${r.type}</span></td>
+                    <td style="font-weight:600; color:var(--navy)">${r.name}</td>
+                    <td style="font-style:italic; color:#64748b">${r.species}</td>
+                    <td>${r.vesicle}</td>
+                    <td>${r.method}</td>
+                    <td>${r.year}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderCharts(data) {
+            document.getElementById('dashboard').style.display = 'grid';
+            
+            const sMap = {}, mMap = {};
+            data.forEach(d => {
+                sMap[d.species] = (sMap[d.species]||0)+1;
+                const stdMethod = standardizeMethod(d.method);
+                mMap[stdMethod] = (mMap[stdMethod]||0)+1;
+            });
+
+            const onClickFilter = (e, elements, chart) => {
+                if (elements.length > 0) {
+                    const label = chart.data.labels[elements[0].index];
+                    filterData(label);
+                }
+            };
+
+            const topS = Object.entries(sMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            if(chartS) chartS.destroy();
+            chartS = new Chart(document.getElementById('cSpecies'), {
+                type: 'doughnut',
+                data: {
+                    labels: topS.map(x=>x[0]),
+                    datasets: [{ data: topS.map(x=>x[1]), backgroundColor: ['#0b2545','#1f6f54','#FFD700','#64748b','#cbd5e1'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, onClick: onClickFilter, plugins:{legend:{position:'right'}} }
+            });
+
+            const topM = Object.entries(mMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+            if(chartM) chartM.destroy();
+            chartM = new Chart(document.getElementById('cMethod'), {
+                type: 'bar',
+                data: {
+                    labels: topM.map(x=>x[0].substring(0,25)),
+                    datasets: [{ label: 'Count', data: topM.map(x=>x[1]), backgroundColor: '#1f6f54', borderRadius: 4, barThickness: 20 }]
+                },
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, onClick: onClickFilter, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false}}} }
+            });
+        }
+
+        function filterData(criteria) {
+            currentData = originalData.filter(d => {
+                const stdMethod = standardizeMethod(d.method);
+                return (d.species === criteria) || (stdMethod === criteria);
+            });
+            renderTable(currentData);
+            document.getElementById('btnReset').style.display = 'inline-block';
+        }
+        
+        function resetFilter() {
+            currentData = [...originalData];
+            renderTable(currentData);
+            document.getElementById('btnReset').style.display = 'none';
+        }
+
+        function sortTable(key) {
+            sortDir *= -1;
+            currentData.sort((a, b) => {
+                let valA = a[key] ? a[key].toString().toLowerCase() : "";
+                let valB = b[key] ? b[key].toString().toLowerCase() : "";
+                if(!isNaN(a[key]) && !isNaN(b[key])) { valA=Number(a[key]); valB=Number(b[key]); }
+                if (valA < valB) return -1 * sortDir;
+                if (valA > valB) return 1 * sortDir;
+                return 0;
+            });
+            renderTable(currentData);
+        }
+
+        function showModal(row) {
+            document.getElementById('modalContent').innerHTML = `
+                <div class="modal-row"><span class="modal-label">Molecule Type</span><span class="modal-val">${row.type}</span></div>
+                <div class="modal-row"><span class="modal-label">Gene / Name</span><span class="modal-val">${row.name}</span></div>
+                <div class="modal-row"><span class="modal-label">Species</span><span class="modal-val" style="font-style:italic">${row.species}</span></div>
+                <div class="modal-row"><span class="modal-label">Vesicle Type</span><span class="modal-val">${row.vesicle}</span></div>
+                <div class="modal-row"><span class="modal-label">Isolation Method</span><span class="modal-val">${row.method}</span></div>
+                <div class="modal-row" style="border:none"><span class="modal-label">Publication Year</span><span class="modal-val">${row.year}</span></div>
+            `;
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function closeModal(e) { if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none'; }
+        
+        function doExport() {
+            let csv = "Type,Name,Species,Vesicle,Method,Year\n";
+            currentData.forEach(r => { csv += `"${r.type}","${r.name}","${r.species}","${r.vesicle}","${r.method}","${r.year}"\n`; });
+            const blob = new Blob([csv], {type:'text/csv'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'ev_data.csv'; a.click();
+        }
+
+        input.addEventListener('keypress', e=>{ if(e.key==='Enter') runSearch() });
+    </script>
+</body>
+</html>
