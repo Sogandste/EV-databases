@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>{{ app_name }} | Scientific Explorer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} | Integrated Proteomics & RNA Database</title>
     
-    <!-- Fonts: Inter (The Gold Standard for UI) -->
+    <!-- Fonts: Lato (Headers) & Open Sans (Body) - The Scientific Standard -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     
     <!-- Icons & Charts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -16,404 +16,385 @@
 
     <style>
         :root {
-            /* Palette */
-            --navy: #0f172a;       /* Slate 900 - Darker, classier */
-            --navy-light: #1e293b; /* Slate 800 */
-            --green: #059669;      /* Emerald 600 - More vibrant */
-            --bg: #f8fafc;         /* Slate 50 */
+            /* Article Palette */
+            --navy: #0b2545;       /* Primary Dark */
+            --navy-light: #163a66; /* Secondary Dark */
+            --green: #1f6f54;      /* Accent Green */
+            --gold: #FFD700;       /* Highlight */
+            --bg: #f0f2f5;
             --white: #ffffff;
-            --text-main: #334155;
-            --text-light: #64748b;
-            --border: #e2e8f0;
+            --text-main: #2d3748;
+            --text-light: #718096;
         }
-
-        * { box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', sans-serif; /* Clean, Scientific Font */
+            font-family: 'Open Sans', sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
+            margin: 0; display: flex; flex-direction: column; min-height: 100vh;
         }
 
-        /* --- HERO SECTION --- */
+        h1, h2, h3, button { font-family: 'Lato', sans-serif; }
+
+        /* --- HERO SECTION (Animated) --- */
         .hero {
-            background: linear-gradient(180deg, var(--navy) 0%, var(--navy-light) 100%);
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
             color: white;
-            padding: 80px 20px 100px; /* Extra padding bottom for overlap */
+            padding: 60px 20px 100px; /* Extra bottom padding for overlap */
             text-align: center;
             position: relative;
             overflow: hidden;
+            border-bottom: 4px solid var(--green);
         }
 
-        /* Ambient Background Animation */
-        .hero::before {
-            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background-image: radial-gradient(circle at 20% 50%, rgba(5, 150, 105, 0.15) 0%, transparent 50%),
-                              radial-gradient(circle at 80% 30%, rgba(255, 215, 0, 0.1) 0%, transparent 40%);
-            z-index: 0;
+        /* Floating Particles (Vesicles) */
+        .particle {
+            position: absolute; background: rgba(255,255,255,0.05);
+            border-radius: 50%; animation: float 20s infinite linear;
+        }
+        .p1 { width: 60px; height: 60px; left: 10%; bottom: -60px; animation-duration: 15s; }
+        .p2 { width: 30px; height: 30px; left: 80%; bottom: -30px; animation-duration: 25s; }
+        .p3 { width: 100px; height: 100px; left: 40%; bottom: -100px; animation-duration: 18s; }
+        
+        @keyframes float { 
+            0% { transform: translateY(0); opacity: 0; } 
+            50% { opacity: 0.5; } 
+            100% { transform: translateY(-600px); opacity: 0; } 
         }
 
-        .hero-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
-
-        .logo-circle {
-            width: 70px; height: 70px;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
+        /* Logo Pulse */
+        .logo-wrap {
+            width: 80px; height: 80px;
+            background: var(--green);
             border-radius: 50%;
             margin: 0 auto 20px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 28px; color: #4ade80; /* Light Green */
-            box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+            font-size: 32px; color: white;
+            position: relative; z-index: 2;
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+            animation: pulse-gold 2s infinite;
+        }
+        @keyframes pulse-gold {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
         }
 
-        h1 { font-weight: 800; font-size: 2.5rem; margin: 0; letter-spacing: -0.02em; }
-        .subtitle { font-weight: 300; opacity: 0.8; font-size: 1.1rem; margin-top: 15px; line-height: 1.6; }
+        .title-box { position: relative; z-index: 2; }
+        h1 { margin: 0; font-size: 2.5rem; font-weight: 900; letter-spacing: 1px; }
+        .subtitle { font-weight: 300; opacity: 0.9; margin-top: 10px; font-size: 1.1rem; }
 
-        /* --- MAIN CONTENT --- */
-        .app-container {
-            max-width: 1200px;
-            width: 100%;
-            margin: -60px auto 40px; /* Overlap effect */
-            padding: 0 20px;
-            position: relative;
-            z-index: 10;
-            flex: 1;
+        /* --- MAIN CONTAINER --- */
+        .container {
+            max-width: 1200px; width: 100%; margin: -50px auto 40px;
+            padding: 0 20px; position: relative; z-index: 10;
+            box-sizing: border-box; flex: 1;
         }
 
-        /* --- SEARCH CARD (Large & Modern) --- */
-        .search-card {
-            background: var(--white);
+        /* --- GLASSMORPHISM SEARCH CARD --- */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px;
             border-radius: 16px;
-            padding: 10px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); /* Deep shadow */
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border: 1px solid var(--border);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            display: flex; gap: 10px;
+            border: 1px solid rgba(255,255,255,0.5);
         }
 
-        .search-input {
-            flex: 1;
-            border: none;
-            padding: 18px 20px;
-            font-size: 1.1rem;
-            font-family: 'Inter', sans-serif;
-            outline: none;
-            color: var(--text-main);
-            background: transparent;
+        .inp {
+            flex: 1; border: none; background: transparent;
+            padding: 15px; font-size: 1.1rem; outline: none;
+            font-family: 'Open Sans', sans-serif;
         }
-
-        .search-btn {
-            background: var(--navy);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            display: flex; align-items: center; gap: 8px;
+        
+        .btn-search {
+            background: var(--navy); color: white; border: none;
+            padding: 15px 40px; border-radius: 10px;
+            font-weight: 700; cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; gap: 10px;
         }
-        .search-btn:active { transform: scale(0.98); }
-        .search-btn:hover { background: #334155; }
+        .btn-search:hover { background: var(--green); }
 
-        /* --- DASHBOARD (Charts) --- */
+        /* --- DASHBOARD (Side-by-Side) --- */
         .dashboard {
             display: none; /* Hidden initially */
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 1fr 1fr; /* 50% 50% Layout */
             gap: 20px;
             margin-top: 30px;
         }
 
-        .chart-card {
-            background: white;
-            padding: 20px;
+        .chart-panel {
+            background: white; padding: 20px;
             border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            height: 300px;
-            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            height: 350px; /* Fixed height for alignment */
         }
         
-        .chart-title { font-size: 0.9rem; font-weight: 700; color: var(--navy); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chart-head {
+            font-size: 0.9rem; font-weight: 700; color: var(--navy);
+            text-transform: uppercase; border-bottom: 2px solid var(--gold);
+            padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between;
+        }
 
-        /* --- RESULTS TABLE --- */
-        .results-section { margin-top: 30px; }
-        
-        .stats-bar {
+        /* --- TABLE SECTION --- */
+        .results-header {
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 15px; color: var(--text-light); font-size: 0.9rem;
+            margin-top: 40px; margin-bottom: 15px;
         }
 
-        /* Table Wrapper for Mobile Scrolling */
-        .table-wrapper {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--border);
-            overflow-x: auto; /* Enable horizontal scroll */
-            -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
+        .btn-export {
+            background: white; color: var(--navy); border: 1px solid var(--navy);
+            padding: 8px 15px; border-radius: 6px; font-size: 0.9rem; cursor: pointer;
+            font-weight: 600; display: none; /* Hidden until search */
+        }
+        .btn-export:hover { background: var(--navy); color: white; }
+
+        /* Scrollable Table Wrapper for Mobile */
+        .table-wrap {
+            background: white; border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            overflow-x: auto; /* KEY FOR MOBILE */
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 800px; /* Force scroll on small screens */
-            table-layout: fixed; /* Fix column widths */
-        }
-
-        thead { background: #f1f5f9; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; } /* Min-width forces scroll */
         
         th {
-            padding: 16px;
-            text-align: left;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            color: var(--navy);
-            font-weight: 700;
-            border-bottom: 1px solid var(--border);
-            white-space: nowrap;
+            background: #f8fafc; color: var(--navy); text-align: left;
+            padding: 16px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 1px solid #e2e8f0; white-space: nowrap;
         }
-
-        td {
-            padding: 16px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.95rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis; /* ... for long text */
-        }
-
-        /* Column Widths */
-        th:nth-child(1) { width: 100px; } /* Type */
-        th:nth-child(2) { width: 150px; } /* Name */
-        th:nth-child(3) { width: 150px; } /* Species */
-        th:nth-child(4) { width: 120px; } /* Vesicle */
-        th:nth-child(5) { width: auto; }  /* Method (Flexible) */
-        th:nth-child(6) { width: 80px; }  /* Year */
+        
+        td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; }
+        tr:hover { background: #fdfdfd; }
 
         /* Badges */
-        .badge {
-            padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;
-        }
-        .protein { background: #e0f2fe; color: #0284c7; }
-        .mrna { background: #f3e8ff; color: #9333ea; }
-        .mirna { background: #ffedd5; color: #ea580c; }
-        .other { background: #f1f5f9; color: #64748b; }
+        .badge { padding: 5px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+        .protein { background: #e3f2fd; color: #0d47a1; }
+        .mrna { background: #f3e5f5; color: #6a1b9a; }
+        .mirna { background: #fff3e0; color: #e65100; }
+        .other { background: #eceff1; color: #546e7a; }
 
-        /* Loader */
-        .loader { text-align: center; padding: 60px; color: var(--text-light); }
-        .loader i { font-size: 2rem; color: var(--navy); margin-bottom: 15px; animation: spin 1s infinite linear; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        /* Footer */
+        footer { text-align: center; padding: 40px; color: #999; font-size: 0.85rem; margin-top: auto; }
 
-        /* --- FOOTER --- */
-        footer {
-            text-align: center; padding: 40px; color: var(--text-light); font-size: 0.9rem;
-            border-top: 1px solid var(--border); background: white; margin-top: auto;
-        }
-
-        /* --- MOBILE TWEAKS --- */
-        @media (max-width: 768px) {
-            h1 { font-size: 1.8rem; }
-            .subtitle { font-size: 1rem; }
-            .app-container { padding: 0 15px; margin-top: -40px; }
-            .search-card { padding: 5px; flex-direction: column; gap: 0; }
-            .search-input { width: 100%; text-align: center; padding: 15px; }
-            .search-btn { width: 100%; justify-content: center; border-radius: 8px; }
+        /* --- MOBILE RESPONSIVE --- */
+        @media (max-width: 800px) {
             .dashboard { grid-template-columns: 1fr; } /* Stack charts */
+            .chart-panel { height: 300px; }
+            .glass-card { flex-direction: column; padding: 10px; gap: 5px; }
+            .btn-search { width: 100%; justify-content: center; }
+            .inp { text-align: center; border-bottom: 1px solid #eee; }
+            h1 { font-size: 1.8rem; }
         }
     </style>
 </head>
 <body>
 
     <header class="hero">
-        <div class="hero-content">
-            <div class="logo-circle"><i class="fas fa-network-wired"></i></div>
+        <!-- Animation Particles -->
+        <div class="particle p1"></div><div class="particle p2"></div><div class="particle p3"></div>
+        
+        <div class="title-box">
+            <div class="logo-wrap"><i class="fas fa-dna"></i></div>
             <h1>EVisionary</h1>
-            <p class="subtitle">Ontology-aware harmonization of EV proteomics & RNA metadata.</p>
+            <p class="subtitle">Integrated Proteomics & RNA Database | Ontology-aware Harmonization</p>
         </div>
     </header>
 
-    <div class="app-container">
+    <div class="container">
         
-        <!-- Search Area -->
-        <div class="search-card">
-            <input type="text" id="q" class="search-input" placeholder="Search Gene (e.g., CD63), Species, or Accession ID...">
-            <button class="search-btn" onclick="executeSearch()">
-                <i class="fas fa-search"></i> Search
+        <!-- Search -->
+        <div class="glass-card">
+            <input type="text" id="q" class="inp" placeholder="Enter Gene (CD63), Protein, or Species..." autofocus>
+            <button class="btn-search" onclick="doSearch()">
+                <i class="fas fa-search"></i> <span>SEARCH</span>
             </button>
         </div>
 
-        <!-- Analytics Dashboard -->
-        <div id="dashboard" class="dashboard">
-            <div class="chart-card">
-                <div class="chart-title">Species Distribution</div>
-                <canvas id="speciesChart"></canvas>
+        <!-- Charts (Side by Side) -->
+        <div id="dash" class="dashboard">
+            <div class="chart-panel">
+                <div class="chart-head">
+                    <span>Species Distribution</span>
+                    <i class="fas fa-globe-americas" style="color:#ccc"></i>
+                </div>
+                <div style="height:260px"><canvas id="c1"></canvas></div>
             </div>
-            <div class="chart-card">
-                <div class="chart-title">Isolation Methods</div>
-                <canvas id="methodChart"></canvas>
+            <div class="chart-panel">
+                <div class="chart-head">
+                    <span>Top Isolation Methods</span>
+                    <i class="fas fa-vial" style="color:#ccc"></i>
+                </div>
+                <div style="height:260px"><canvas id="c2"></canvas></div>
             </div>
         </div>
 
-        <!-- Results Table -->
-        <div id="results" class="results-section">
-            <div class="loader">
-                <i class="fas fa-microscope" style="animation:none; opacity:0.3; font-size:3rem"></i>
-                <p style="margin-top:15px">Enter a query to explore the database.</p>
+        <!-- Table -->
+        <div id="res">
+            <div style="text-align:center; padding:60px; color:#aaa">
+                <i class="fas fa-search fa-3x" style="opacity:0.2; margin-bottom:20px"></i>
+                <p>Begin your meta-analysis.</p>
             </div>
         </div>
 
     </div>
 
     <footer>
-        <p>EVisionary Project &copy; 2026 | Designed for JEV Reproducibility Standards</p>
+        EVisionary v2.0 &copy; 2026<br>
+        Built for JEV Reproducibility Standards
     </footer>
 
     <script>
         const input = document.getElementById('q');
-        const dashboard = document.getElementById('dashboard');
-        let chartSpecies = null;
-        let chartMethod = null;
+        const dash = document.getElementById('dash');
+        const resDiv = document.getElementById('res');
+        let chart1 = null, chart2 = null;
+        let lastData = []; // Store for export
 
-        async function executeSearch() {
-            const query = input.value.trim();
-            if(!query) return;
+        async function doSearch() {
+            const val = input.value.trim();
+            if(!val) return;
 
-            // UI Loading State
-            dashboard.style.display = 'none';
-            document.getElementById('results').innerHTML = `
-                <div class="loader">
-                    <i class="fas fa-circle-notch"></i>
-                    <p>Querying unified database...</p>
-                </div>`;
+            // Loading UI
+            dash.style.display = 'none';
+            resDiv.innerHTML = `<div style="text-align:center; padding:60px; color:var(--navy)"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Querying database...</div>`;
 
             try {
-                const res = await fetch(`/search?q=${encodeURIComponent(query)}&limit=200`);
-                const data = await res.json();
+                const req = await fetch(`/search?q=${encodeURIComponent(val)}&limit=300`);
+                const data = await req.json();
+                lastData = data;
 
                 if(data.length === 0) {
-                    document.getElementById('results').innerHTML = `
-                        <div class="loader">No results found for "<strong>${query}</strong>".</div>`;
+                    resDiv.innerHTML = `<div style="text-align:center; padding:60px">No results found for "${val}".</div>`;
                     return;
                 }
 
-                // 1. RENDER CHARTS
+                // 1. Show Charts
                 renderCharts(data);
 
-                // 2. RENDER TABLE
+                // 2. Show Table
                 renderTable(data);
 
-            } catch (err) {
-                document.getElementById('results').innerHTML = `<div class="loader" style="color:red">Error: ${err.message}</div>`;
+            } catch(e) {
+                resDiv.innerHTML = `<div style="text-align:center; color:red; padding:40px">Error: ${e.message}</div>`;
             }
         }
 
         function renderTable(data) {
-            let html = `
-                <div class="stats-bar">
-                    <span><strong>${data.length}</strong> Records found</span>
-                    <span><i class="fas fa-check-circle" style="color:var(--green)"></i> Verified</span>
-                </div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Gene / Name</th>
-                                <th>Species</th>
-                                <th>Vesicle Type</th>
-                                <th>Isolation Method</th>
-                                <th>Year</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+            let h = `
+            <div class="results-header">
+                <span style="font-weight:700; color:var(--green)">${data.length} Records Found</span>
+                <button class="btn-export" style="display:block" onclick="exportCSV()">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Gene / Name</th>
+                            <th>Species</th>
+                            <th>Vesicle Type</th>
+                            <th>Method</th>
+                            <th>Year</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
             
-            data.forEach(row => {
+            data.forEach(r => {
                 let badge = 'other';
-                if(row.type === 'Protein') badge = 'protein';
-                if(row.type === 'mRNA') badge = 'mrna';
-                if(row.type === 'miRNA') badge = 'mirna';
+                if(r.type === 'Protein') badge = 'protein';
+                if(r.type === 'mRNA') badge = 'mrna';
+                if(r.type === 'miRNA') badge = 'mirna';
 
-                html += `
-                    <tr>
-                        <td><span class="badge ${badge}">${row.type}</span></td>
-                        <td title="${row.name}"><strong>${row.name}</strong></td>
-                        <td><em>${row.species}</em></td>
-                        <td title="${row.vesicle}">${row.vesicle}</td>
-                        <td title="${row.method}">${row.method}</td>
-                        <td>${row.year}</td>
-                    </tr>`;
+                h += `
+                <tr>
+                    <td><span class="badge ${badge}">${r.type}</span></td>
+                    <td style="font-weight:600; color:#333">${r.name}</td>
+                    <td style="font-style:italic; color:#555">${r.species}</td>
+                    <td>${r.vesicle}</td>
+                    <td>${r.method}</td>
+                    <td>${r.year}</td>
+                </tr>`;
             });
-
-            html += `</tbody></table></div>`;
-            document.getElementById('results').innerHTML = html;
+            h += `</tbody></table></div>`;
+            resDiv.innerHTML = h;
         }
 
         function renderCharts(data) {
-            dashboard.style.display = 'grid';
+            dash.style.display = 'grid'; // Grid mode for side-by-side
 
-            // Process Data
-            const speciesCount = {};
-            const methodCount = {};
-            
+            const sMap = {}, mMap = {};
             data.forEach(d => {
-                const s = d.species || "Unknown";
-                const m = d.method || "Unknown";
-                speciesCount[s] = (speciesCount[s] || 0) + 1;
-                methodCount[m] = (methodCount[m] || 0) + 1;
+                sMap[d.species] = (sMap[d.species]||0)+1;
+                mMap[d.method] = (mMap[d.method]||0)+1;
             });
 
-            // Sort and Slice
-            const topSpecies = Object.entries(speciesCount).sort((a,b)=>b[1]-a[1]).slice(0, 5);
-            const topMethods = Object.entries(methodCount).sort((a,b)=>b[1]-a[1]).slice(0, 5);
+            const topS = Object.entries(sMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            const topM = Object.entries(mMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-            // Chart 1: Species (Doughnut)
-            const ctx1 = document.getElementById('speciesChart').getContext('2d');
-            if(chartSpecies) chartSpecies.destroy();
-            chartSpecies = new Chart(ctx1, {
+            // Chart 1: Species (Doughnut) - Scientific Palette
+            const ctx1 = document.getElementById('c1').getContext('2d');
+            if(chart1) chart1.destroy();
+            chart1 = new Chart(ctx1, {
                 type: 'doughnut',
                 data: {
-                    labels: topSpecies.map(x=>x[0]),
+                    labels: topS.map(x=>x[0]),
                     datasets: [{
-                        data: topSpecies.map(x=>x[1]),
-                        backgroundColor: ['#0f172a', '#334155', '#475569', '#64748b', '#94a3b8'],
+                        data: topS.map(x=>x[1]),
+                        // Navy, Green, Gold, Light Navy, Gray
+                        backgroundColor: ['#0b2545', '#1f6f54', '#FFD700', '#163a66', '#bdc3c7'],
                         borderWidth: 0
                     }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
             });
 
-            // Chart 2: Methods (Bar)
-            const ctx2 = document.getElementById('methodChart').getContext('2d');
-            if(chartMethod) chartMethod.destroy();
-            chartMethod = new Chart(ctx2, {
+            // Chart 2: Methods (Bar) - Forest Green
+            const ctx2 = document.getElementById('c2').getContext('2d');
+            if(chart2) chart2.destroy();
+            chart2 = new Chart(ctx2, {
                 type: 'bar',
                 data: {
-                    labels: topMethods.map(x=>x[0]),
+                    labels: topM.map(x=>x[0]),
                     datasets: [{
                         label: 'Count',
-                        data: topMethods.map(x=>x[1]),
-                        backgroundColor: '#059669',
+                        data: topM.map(x=>x[1]),
+                        backgroundColor: '#1f6f54',
                         borderRadius: 4
                     }]
                 },
                 options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
+                    scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
                 }
             });
         }
 
-        input.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch() });
+        function exportCSV() {
+            if(!lastData.length) return;
+            const headers = ["Type", "Name", "Species", "Vesicle", "Method", "Year"];
+            const rows = lastData.map(r => [r.type, r.name, r.species, r.vesicle, r.method, r.year]);
+            
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + headers.join(",") + "\n" 
+                + rows.map(e => e.map(i => `"${i}"`).join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "ev_data_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        input.addEventListener('keypress', e => { if(e.key === 'Enter') doSearch() });
     </script>
 </body>
 </html>
