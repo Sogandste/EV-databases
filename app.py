@@ -1,6 +1,7 @@
 import os
 import duckdb
 from flask import Flask, jsonify, request, render_template
+import re
 
 app = Flask(__name__)
 
@@ -11,125 +12,130 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "unified_ev_metadata.parquet")
 
 con = duckdb.connect(database=':memory:')
 
-# --- Helper: Remove .0 from Year ---
-def clean_year(val):
-    """Converts 2015.0 to 2015, and None to -"""
-    if not val or str(val).lower() == "none" or str(val).lower() == "nan":
-        return "-"
-    s = str(val)
-    # If it looks like a float (e.g. 2015.0), split it
-    if "." in s:
-        return s.split(".")[0]
+# --- 1. CLEANING FUNCTIONS (The Makeover) ---
+def clean_text(val):
+    """
+    Cleans dirty string data:
+    - Removes underscores
+    - Handles None/NaN
+    - Title cases text (e.g. 'homo_sapiens' -> 'Homo Sapiens')
+    """
+    if val is None: return "—"
+    s = str(val).strip()
+    
+    # Check for empty/null strings
+    if s.lower() in ["none", "nan", "null", "", "n/a"]:
+        return "—"
+    
+    # Remove underscores
+    s = s.replace("_", " ")
+    
+    # Fix spacing issues
+    s = " ".join(s.split())
+    
     return s
 
-# --- Strict Column Mapping ---
-def map_columns_strictly(all_cols):
+def standardize_mol_type(val, full_row_str):
     """
-    Finds the correct column names using strict lists to avoid mixing 'Vesicle Type' with 'Content Type'.
+    Forces standard scientific casing:
+    - mrna, MRNA -> mRNA
+    - mirna -> miRNA
+    - protein -> Protein
     """
-    upper_cols = {c.upper(): c for c in all_cols}
+    # First, look at the specific value
+    s = str(val).lower() if val else ""
     
-    mapping = {}
+    # If specific value is empty, scan the whole row (smart guess)
+    if s in ["none", "nan", "", "—"]:
+        s = full_row_str.lower()
     
-    # 1. Molecule Type (Protein, mRNA, etc.)
-    # We look for CONTENT_TYPE specifically first
-    type_candidates = ["CONTENT_TYPE", "MOLECULE_TYPE", "BIOMOLECULE", "CAT_TYPE"]
-    mapping['type'] = next((upper_cols[k] for k in type_candidates if k in upper_cols), None)
+    # Logic priority
+    if "mirna" in s: return "miRNA"
+    if "mrna" in s: return "mRNA"
+    if "protein" in s or "uniprot" in s: return "Protein"
+    if "lipid" in s: return "Lipid"
+    
+    return "Other" # Default if nothing matches
 
-    # 2. Name / ID (Gene Symbol, Protein Name)
-    name_candidates = ["GENE_SYMBOL", "GENE_NAME", "PROTEIN_NAME", "SYMBOL", "UNIPROT_ID", "NAME", "CONTENT_ID"]
-    mapping['name'] = next((upper_cols[k] for k in name_candidates if k in upper_cols), None)
+def clean_year(val):
+    if not val: return "—"
+    s = str(val)
+    if "." in s: s = s.split(".")[0] # Remove .0
+    if s.lower() in ["none", "nan"]: return "—"
+    return s
 
-    # 3. Vesicle Type (sEV, Exosome) - MUST contain VESICLE or EV
-    vesicle_candidates = ["VESICLE_TYPE", "EV_TYPE", "EXOSOME_TYPE", "SUBTYPE"]
-    mapping['vesicle'] = next((upper_cols[k] for k in vesicle_candidates if k in upper_cols), None)
-
-    # 4. Species
-    species_candidates = ["SPECIES", "ORGANISM", "HOST_ORGANISM"]
-    mapping['species'] = next((upper_cols[k] for k in species_candidates if k in upper_cols), "Species")
-
-    # 5. Method
-    method_candidates = ["ISOLATION_METHOD", "METHOD", "TECHNIQUE", "PURIFICATION"]
-    mapping['method'] = next((upper_cols[k] for k in method_candidates if k in upper_cols), "Method")
-
-    # 6. Year
-    year_candidates = ["YEAR", "PUBLICATION_YEAR", "DATE"]
-    mapping['year'] = next((upper_cols[k] for k in year_candidates if k in upper_cols), "Year")
-
-    return mapping
-
-# --- Initialize ---
+# --- 2. COLUMN MAPPING ---
 def get_schema_info():
     try:
-        schema_query = f"DESCRIBE SELECT * FROM '{DATA_PATH}' LIMIT 1"
-        schema_df = con.execute(schema_query).fetchall()
-        all_cols = [row[0] for row in schema_df]
-        text_cols = [row[0] for row in schema_df if 'VARCHAR' in row[1] or 'STRING' in row[1]]
+        # Check available columns
+        df = con.execute(f"DESCRIBE SELECT * FROM '{DATA_PATH}' LIMIT 1").fetchall()
+        all_cols = [r[0] for r in df]
+        text_cols = [r[0] for r in df if 'VARCHAR' in r[1] or 'STRING' in r[1]]
         
-        # Use strict mapping
-        col_map = map_columns_strictly(all_cols)
-        print(f"✅ Final Column Mapping: {col_map}")
+        upper_map = {c.upper(): c for c in all_cols}
         
-        return text_cols, col_map, len(all_cols)
-    except Exception as e:
-        print(f"❌ Schema Error: {e}")
-        return [], {}, 0
+        # Priority mapping
+        col_map = {
+            "name": next((upper_map[k] for k in ["GENE_SYMBOL", "GENE_NAME", "PROTEIN_NAME", "NAME", "SYMBOL", "CONTENT_ID"] if k in upper_map), None),
+            "type": next((upper_map[k] for k in ["CONTENT_TYPE", "MOLECULE_TYPE", "CAT_TYPE"] if k in upper_map), None),
+            "species": next((upper_map[k] for k in ["SPECIES", "ORGANISM", "HOST"] if k in upper_map), "Species"),
+            "vesicle": next((upper_map[k] for k in ["VESICLE_TYPE", "EV_TYPE", "SUBTYPE"] if k in upper_map), None),
+            "method": next((upper_map[k] for k in ["ISOLATION_METHOD", "METHOD"] if k in upper_map), None),
+            "year": next((upper_map[k] for k in ["YEAR", "PUBLICATION_YEAR"] if k in upper_map), None)
+        }
+        return text_cols, col_map
+    except:
+        return [], {}
 
-SEARCHABLE_COLS, COL_MAP, TOTAL_COLS = get_schema_info()
+SEARCHABLE_COLS, COL_MAP = get_schema_info()
 
-# --- Search Logic ---
+# --- 3. SEARCH ENGINE ---
 def search_duckdb(query, limit=100):
     try:
         if not SEARCHABLE_COLS: return []
         
-        safe_query = query.replace("'", "''")
-        where_clauses = [f"\"{col}\" ILIKE '%{safe_query}%'" for col in SEARCHABLE_COLS]
-        full_where = " OR ".join(where_clauses)
+        safe_q = query.replace("'", "''")
+        where = " OR ".join([f"\"{c}\" ILIKE '%{safe_q}%'" for c in SEARCHABLE_COLS])
         
-        sql = f"SELECT * FROM '{DATA_PATH}' WHERE {full_where} LIMIT {limit}"
-        result_rows = con.execute(sql).fetchall()
-        
-        desc = con.description
-        res_col_names = [d[0] for d in desc]
+        sql = f"SELECT * FROM '{DATA_PATH}' WHERE {where} LIMIT {limit}"
+        rows = con.execute(sql).fetchall()
+        cols = [d[0] for d in con.description]
         
         output = []
-        for row in result_rows:
-            row_dict = dict(zip(res_col_names, row))
+        for r in rows:
+            rd = dict(zip(cols, r))
+            full_str = str(rd) # For fallback type guessing
             
-            # --- Robust Data Extraction ---
+            # --- Extract & Clean ---
             
-            # 1. Molecule Type logic
-            raw_type = row_dict.get(COL_MAP['type']) if COL_MAP['type'] else None
-            # If explicit column missing, try to guess from the whole row, 
-            # BUT DON'T put Vesicle Type here.
-            mol_type = str(raw_type) if raw_type else "Unknown"
-            if mol_type == "None" or mol_type == "Unknown":
-                # Fallback guess only if strictly needed
-                full_s = str(row_dict).lower()
-                if "mirna" in full_s: mol_type = "miRNA"
-                elif "protein" in full_s: mol_type = "Protein"
-                elif "mrna" in full_s: mol_type = "mRNA"
+            # 1. Name: Try explicit col, then fallback to any ID
+            raw_name = rd.get(COL_MAP.get('name'))
+            if not raw_name and 'CONTENT_ID' in rd: raw_name = rd['CONTENT_ID'] # Fallback
+            name = clean_text(raw_name)
             
-            # 2. Name
-            name_val = row_dict.get(COL_MAP['name'], "—")
+            # 2. Type: Standardize casing
+            raw_type = rd.get(COL_MAP.get('type'))
+            mol_type = standardize_mol_type(raw_type, full_str)
             
-            # 3. Vesicle Type
-            vesicle_val = row_dict.get(COL_MAP['vesicle'], "—")
+            # 3. Others
+            species = clean_text(rd.get(COL_MAP.get('species')))
+            vesicle = clean_text(rd.get(COL_MAP.get('vesicle')))
+            method = clean_text(rd.get(COL_MAP.get('method')))
+            year = clean_year(rd.get(COL_MAP.get('year')))
 
             output.append({
-                "name": str(name_val),
+                "name": name,
                 "type": mol_type,
-                "species": str(row_dict.get(COL_MAP['species'], "—")),
-                "vesicle": str(vesicle_val),
-                "method": str(row_dict.get(COL_MAP['method'], "—")),
-                "year": clean_year(row_dict.get(COL_MAP['year'])) # Clean the .0
+                "species": species,
+                "vesicle": vesicle,
+                "method": method,
+                "year": year
             })
             
         return output
-
     except Exception as e:
-        print(f"SQL Error: {e}")
-        raise e
+        print(e)
+        return []
 
 # --- Routes ---
 @app.route("/")
@@ -139,20 +145,16 @@ def index():
 @app.route("/stats")
 def stats():
     try:
-        count = con.execute(f"SELECT COUNT(*) FROM '{DATA_PATH}'").fetchone()[0]
-    except:
-        count = "700k+"
-    return jsonify({"total_records": count})
+        c = con.execute(f"SELECT COUNT(*) FROM '{DATA_PATH}'").fetchone()[0]
+    except: c = "700k+"
+    return jsonify({"total_records": c})
 
 @app.route("/search")
 def search():
-    query = request.args.get("q", "")
+    q = request.args.get("q", "")
     limit = int(request.args.get("limit", 100))
-    if not query: return jsonify([])
-    try:
-        return jsonify(search_duckdb(query, limit))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    if not q: return jsonify([])
+    return jsonify(search_duckdb(q, limit))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

@@ -3,151 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ app_name }} | EV Database Explorer</title>
+    <title>{{ app_name }} | Scientific Explorer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         :root {
             --navy: #0b2545;
             --green: #1f6f54;
-            --bg: #f8f9fa;
+            --bg: #f4f6f8;
+            --text-dark: #1a202c;
+            --text-light: #718096;
         }
 
         body {
-            font-family: 'Segoe UI', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             margin: 0; padding: 0;
+            color: var(--text-dark);
             display: flex; flex-direction: column; min-height: 100vh;
         }
 
-        .hero {
+        .header {
             background: var(--navy);
             color: white;
             padding: 40px 20px;
             text-align: center;
+            border-bottom: 4px solid var(--green);
         }
 
-        /* Yellow Pulse Logo */
-        .logo-wrap {
-            width: 70px; height: 70px;
+        .logo-box {
+            width: 60px; height: 60px;
             background: var(--green);
             border-radius: 50%;
             margin: 0 auto 15px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 28px; color: white;
-            animation: pulse 2s infinite;
+            font-size: 24px; color: white;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+            animation: glow 3s infinite;
         }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
-        }
+        @keyframes glow { 0%,100% { box-shadow: 0 0 5px #1f6f54; } 50% { box-shadow: 0 0 20px #ffd700; } }
 
-        .search-container {
+        .search-area {
             max-width: 800px; margin: -25px auto 30px;
-            background: white; padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            background: white; padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             display: flex; gap: 10px;
         }
 
-        input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 1rem; }
-        button { padding: 12px 25px; background: var(--navy); color: white; border: none; border-radius: 6px; cursor: pointer; }
-        
-        .results { max-width: 1200px; margin: 0 auto; padding: 20px; flex: 1; }
-        
-        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        th { background: #eef2f5; padding: 12px; text-align: left; color: var(--navy); font-weight: 700; border-bottom: 2px solid var(--green); }
-        td { padding: 12px; border-bottom: 1px solid #eee; color: #333; }
-        tr:hover { background: #fcfcfc; }
+        input {
+            flex: 1; padding: 12px 15px;
+            border: 1px solid #e2e8f0; border-radius: 6px;
+            font-size: 1rem; outline: none;
+        }
+        input:focus { border-color: var(--green); }
 
-        /* Badges */
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
-        .prot { background: #e3f2fd; color: #1565c0; }
-        .rna { background: #f3e5f5; color: #7b1fa2; }
-        .other { background: #eee; color: #666; }
+        button {
+            background: var(--navy); color: white;
+            border: none; padding: 0 30px; border-radius: 6px;
+            font-weight: 600; cursor: pointer;
+        }
 
-        .loader { text-align: center; padding: 40px; color: #888; }
-        footer { text-align: center; padding: 20px; color: #aaa; font-size: 0.85rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; flex: 1; }
+
+        table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            background: white; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+
+        th {
+            background: #edf2f7; color: var(--navy);
+            text-align: left; padding: 16px;
+            font-weight: 700; font-size: 0.85rem;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        td { padding: 14px 16px; border-bottom: 1px solid #edf2f7; vertical-align: middle; }
+        tr:hover td { background: #f7fafc; }
+
+        /* --- Badges for Types --- */
+        .badge {
+            display: inline-block; padding: 4px 10px;
+            border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+        }
+        /* Specific Styles */
+        .badge.protein { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
+        .badge.mrna { background: #faf5ff; color: #805ad5; border: 1px solid #e9d8fd; } /* Purple for mRNA */
+        .badge.mirna { background: #fffaf0; color: #dd6b20; border: 1px solid #feebc8; } /* Orange for miRNA */
+        .badge.other { background: #edf2f7; color: #718096; }
+
+        /* Typography */
+        .name-cell { font-weight: 600; color: #2d3748; }
+        .empty-cell { color: #cbd5e0; font-weight: 300; } /* Make '—' subtle */
+        .species-cell { font-style: italic; color: #4a5568; }
+
+        .status { text-align: center; padding: 40px; color: var(--text-light); }
+        footer { text-align: center; padding: 20px; color: #a0aec0; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
-<div class="hero">
-    <div class="logo-wrap"><i class="fas fa-dna"></i></div>
-    <h2>EVisionary</h2>
-    <p>Reproducible EV Meta-Analysis Platform</p>
-</div>
+    <div class="header">
+        <div class="logo-box"><i class="fas fa-dna"></i></div>
+        <h2>EVisionary</h2>
+        <p>Integrated Proteomics & RNA Database</p>
+    </div>
 
-<div class="search-container">
-    <input type="text" id="q" placeholder="Search Gene (CD63), Protein, or Species..." autofocus>
-    <button onclick="runSearch()">Search</button>
-</div>
+    <div class="search-area">
+        <input type="text" id="q" placeholder="Search Gene, Protein (e.g. CD63), or Species..." autofocus>
+        <button onclick="run()">Search</button>
+    </div>
 
-<div class="results" id="res">
-    <div class="loader">Enter a keyword to start harmonization.</div>
-</div>
+    <div class="container" id="results">
+        <div class="status">
+            <i class="fas fa-search fa-2x" style="opacity:0.2; margin-bottom:15px"></i>
+            <p>Enter a query to harmonize data.</p>
+        </div>
+    </div>
 
-<footer>EVisionary &copy; 2026</footer>
+    <footer>EVisionary &copy; 2026 | JEV Standardized Output</footer>
 
-<script>
-    async function runSearch() {
-        const q = document.getElementById('q').value.trim();
-        if(!q) return;
+    <script>
+        const qInput = document.getElementById('q');
         
-        const div = document.getElementById('res');
-        div.innerHTML = '<div class="loader"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
-        
-        try {
-            const req = await fetch(`/search?q=${encodeURIComponent(q)}&limit=100`);
-            const data = await req.json();
+        async function run() {
+            const val = qInput.value.trim();
+            if(!val) return;
             
-            if(data.length === 0) {
-                div.innerHTML = '<div class="loader">No matches found.</div>';
-                return;
-            }
+            const box = document.getElementById('results');
+            box.innerHTML = `<div class="status"><i class="fas fa-spinner fa-spin"></i> Searching...</div>`;
 
-            let html = `
-            <table>
-                <thead>
-                    <tr>
-                        <th width="15%">Molecule Type</th>
-                        <th width="20%">Gene / Protein</th>
-                        <th width="20%">Species</th>
-                        <th width="15%">Vesicle Type</th>
-                        <th width="20%">Isolation Method</th>
-                        <th width="10%">Year</th>
-                    </tr>
-                </thead>
-                <tbody>`;
-            
-            data.forEach(r => {
-                let cls = 'other';
-                let t = (r.type || "").toLowerCase();
-                if(t.includes('protein')) cls = 'prot';
-                if(t.includes('rna')) cls = 'rna';
+            try {
+                const res = await fetch(`/search?q=${encodeURIComponent(val)}&limit=100`);
+                const data = await res.json();
+
+                if(data.length === 0) {
+                    box.innerHTML = `<div class="status">No records found for "${val}".</div>`;
+                    return;
+                }
+
+                let h = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Gene / Name</th>
+                            <th>Species</th>
+                            <th>Vesicle Type</th>
+                            <th>Method</th>
+                            <th>Year</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
                 
-                html += `
-                <tr>
-                    <td><span class="badge ${cls}">${r.type}</span></td>
-                    <td style="font-weight:600">${r.name}</td>
-                    <td style="font-style:italic">${r.species}</td>
-                    <td>${r.vesicle}</td>
-                    <td>${r.method}</td>
-                    <td>${r.year}</td>
-                </tr>`;
-            });
-            
-            html += '</tbody></table><div style="margin-top:10px; font-size:0.9rem; color:green">' + data.length + ' records found</div>';
-            div.innerHTML = html;
-            
-        } catch(e) {
-            div.innerHTML = '<div class="loader" style="color:red">Error: ' + e.message + '</div>';
-        }
-    }
-    
-    document.getElementById('q').addEventListener('keypress', e => { if(e.key === 'Enter') runSearch(); });
-</script>
+                data.forEach(r => {
+                    // 1. Determine Badge Style
+                    let bClass = 'other';
+                    let txt = r.type; // e.g. "mRNA" from backend
+                    
+                    if(txt === 'Protein') bClass = 'protein';
+                    else if(txt === 'mRNA') bClass = 'mrna';
+                    else if(txt === 'miRNA') bClass = 'mirna';
 
+                    // 2. Handle Empty Cells (Visual)
+                    const show = (v, cls='') => v === '—' ? `<span class="empty-cell">—</span>` : `<span class="${cls}">${v}</span>`;
+
+                    h += `
+                    <tr>
+                        <td><span class="badge ${bClass}">${txt}</span></td>
+                        <td>${show(r.name, 'name-cell')}</td>
+                        <td>${show(r.species, 'species-cell')}</td>
+                        <td>${show(r.vesicle)}</td>
+                        <td>${show(r.method)}</td>
+                        <td>${show(r.year)}</td>
+                    </tr>`;
+                });
+
+                h += `</tbody></table><div style="margin-top:10px; color:green; font-weight:bold; font-size:0.9rem">${data.length} records found</div>`;
+                box.innerHTML = h;
+
+            } catch(e) {
+                box.innerHTML = `<div class="status" style="color:red">Error: ${e.message}</div>`;
+            }
+        }
+
+        qInput.addEventListener('keypress', e => { if(e.key==='Enter') run() });
+    </script>
 </body>
 </html>
