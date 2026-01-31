@@ -150,7 +150,6 @@
             font-family: monospace; background: #f1f5f9; color: #475569;
             padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;
         }
-        .id-note { font-size: 0.75rem; color: #94a3b8; display: block; margin-top: 10px; padding: 0 10px; }
 
         /* Modal */
         .modal-overlay {
@@ -241,8 +240,9 @@
                     <tbody></tbody>
                 </table>
             </div>
-            <div class="id-note">
-                <i class="fas fa-info-circle"></i> Note: Entries displayed as <b>ID:...</b> represent Entrez Gene IDs where the official Gene Symbol was unavailable in source metadata.
+            <!-- REVERTED SENTENCE -->
+            <div style="text-align:center; margin-top:10px; font-size:0.75rem; color:#64748b">
+                <i class="fas fa-mouse-pointer"></i> Click rows to view full details
             </div>
         </div>
     </div>
@@ -278,7 +278,6 @@
             const query = input.value.trim();
             if(!query) return;
             
-            // UI Reset
             document.getElementById('dashboard').style.display = 'none';
             document.getElementById('results').style.display = 'none';
             document.getElementById('noResults').style.display = 'none';
@@ -289,7 +288,6 @@
                 currentData = [...originalData];
                 
                 if(originalData.length === 0) { 
-                    // Show No Results Message
                     document.getElementById('noResults').style.display = 'block';
                     document.getElementById('qDisplay').innerText = query;
                     return; 
@@ -307,10 +305,9 @@
         function formatName(rawName) {
             if (!rawName) return "-";
             let str = rawName.toString();
-            // Remove trailing .0 if present
             if (str.endsWith('.0')) str = str.slice(0, -2);
             
-            // Check if it is purely numeric (ID)
+            // Still adds ID tag inside the table (clean look)
             if (/^\d+$/.test(str)) {
                 return `<span class="id-label" title="Original Gene Symbol missing; Entrez ID shown">ID: ${str}</span>`;
             }
@@ -427,7 +424,6 @@
         }
 
         function showModal(row) {
-            // Apply formatting in modal too
             let dName = row.name.toString();
             if(dName.endsWith('.0')) dName = dName.slice(0, -2);
             if(/^\d+$/.test(dName)) dName = `ID: ${dName} (Entrez Gene ID)`;
@@ -447,7 +443,6 @@
         function doExport() {
             let csv = "Type,Name,Species,Vesicle,Method,Year\n";
             currentData.forEach(r => { 
-                // Export clean number, but without 'ID:' prefix for raw data utility
                 let nameExport = r.name.toString();
                 if(nameExport.endsWith('.0')) nameExport = nameExport.slice(0, -2);
                 csv += `"${r.type}","${nameExport}","${r.species}","${r.vesicle}","${r.method}","${r.year}"\n`; 
